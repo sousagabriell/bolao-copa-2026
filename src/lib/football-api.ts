@@ -44,7 +44,9 @@ export async function fetchWorldCupMatches(): Promise<Partial<Match>[]> {
     "/competitions/WC/matches?season=2026"
   );
 
-  return data.matches.map((m) => ({
+  return data.matches
+    .filter((m) => m.homeTeam.name && m.awayTeam.name)
+    .map((m) => ({
     external_id: m.id,
     home_team: m.homeTeam.name,
     away_team: m.awayTeam.name,
