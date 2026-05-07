@@ -32,7 +32,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Rotas públicas — não requerem autenticação
-  const publicRoutes = ["/login", "/register", "/api/webhooks"];
+  const publicRoutes = ["/login", "/register", "/api/webhooks", "/api/cron"];
   const isPublic = publicRoutes.some((r) => pathname.startsWith(r));
 
   if (!user && !isPublic) {
