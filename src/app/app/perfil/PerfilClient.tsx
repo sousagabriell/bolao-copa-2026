@@ -32,6 +32,7 @@ export default function PerfilClient({ profile }: Props) {
 
     if (file.size > 2 * 1024 * 1024) {
       setProfileMsg("Imagem muito grande. Máximo 2MB.");
+      console.log("teste-vercel")
       return;
     }
 
