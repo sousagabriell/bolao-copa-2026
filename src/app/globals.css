@@ -10,6 +10,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Copa 2026 brand colors */
+  --color-copa-dark: #0B1120;
+  --color-copa-red: #A30D26;
+  --color-copa-gold: #D4AF37;
+  --color-copa-blue: #003087;
+  --color-copa-dark-800: #161e35;
+  --color-copa-dark-700: #1e2a45;
 }
 
 @media (prefers-color-scheme: dark) {

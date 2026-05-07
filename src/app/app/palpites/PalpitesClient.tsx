@@ -1,149 +1,205 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import { Match, Prediction } from "@/lib/types";
+import { Match, Prediction, translateTeamName } from "@/lib/types";
 import { submitPrediction } from "./actions";
+import { toast } from "sonner";
+import { Pencil, Check, X, MapPin } from "lucide-react";
 
 interface Props {
-  match: Match;
-  prediction: Prediction | undefined;
-  started: boolean;
-  formattedDate: string;
+    match: Match;
+    prediction: Prediction | undefined;
+    started: boolean;
+    formattedDate: string;
 }
 
 export default function PalpitesClient({ match, prediction, started, formattedDate }: Props) {
-  const [home, setHome] = useState<string>(
-    prediction?.home_score_pred !== undefined ? String(prediction.home_score_pred) : ""
-  );
-  const [away, setAway] = useState<string>(
-    prediction?.away_score_pred !== undefined ? String(prediction.away_score_pred) : ""
-  );
-  const [saved, setSaved] = useState(!!prediction);
-  const [isPending, startTransition] = useTransition();
+    const [home, setHome] = useState<string>(
+        prediction?.home_score_pred !== undefined ? String(prediction.home_score_pred) : ""
+    );
+    const [away, setAway] = useState<string>(
+        prediction?.away_score_pred !== undefined ? String(prediction.away_score_pred) : ""
+    );
+    const [editing, setEditing] = useState(!prediction && !started);
+    const [isPending, startTransition] = useTransition();
 
-  function handleSave() {
-    const h = parseInt(home);
-    const a = parseInt(away);
-    if (isNaN(h) || isNaN(a)) return;
+    function handleSave() {
+        const h = parseInt(home);
+        const a = parseInt(away);
+        if (isNaN(h) || isNaN(a)) {
+            toast.error("Preencha ambos os placares.");
+            return;
+        }
 
-    startTransition(async () => {
-      await submitPrediction(match.id, h, a);
-      setSaved(true);
-    });
-  }
+        startTransition(async () => {
+            await submitPrediction(match.id, h, a);
+            setEditing(false);
+            toast.success("Palpite salvo!");
+        });
+    }
 
-  const finished = match.status === "FINISHED";
-  const live = match.status === "IN_PLAY" || match.status === "PAUSED";
+    function handleCancel() {
+        setHome(prediction?.home_score_pred !== undefined ? String(prediction.home_score_pred) : "");
+        setAway(prediction?.away_score_pred !== undefined ? String(prediction.away_score_pred) : "");
+        setEditing(false);
+    }
 
-  return (
-    <div className={`bg-white rounded-xl shadow-sm border mb-3 px-4 py-3 ${live ? "border-green-400" : "border-gray-100"}`}>
-      {/* Data e estádio */}
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs text-gray-400">{formattedDate}</span>
-        <div className="flex items-center gap-1">
-          {live && (
-            <span className="text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full animate-pulse">
-              AO VIVO
-            </span>
-          )}
-          {finished && (
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-              Encerrado
-            </span>
-          )}
-          {prediction?.points !== null && prediction?.points !== undefined && (
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-              prediction.points === 3 ? "bg-yellow-100 text-yellow-700" :
-              prediction.points === 1 ? "bg-blue-100 text-blue-700" :
-              "bg-red-100 text-red-600"
+    const finished = match.status === "FINISHED";
+    const live = match.status === "IN_PLAY" || match.status === "PAUSED";
+    const hasPrediction = prediction?.home_score_pred !== undefined;
+
+    const pointsBadge = prediction?.points !== null && prediction?.points !== undefined ? (
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${prediction.points === 3 ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
+                prediction.points === 1 ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
+                    "bg-red-500/20 text-red-400 border border-red-400/30"
             }`}>
-              {prediction.points === 3 ? "⭐ +3" : prediction.points === 1 ? "+1" : "+0"}
-            </span>
-          )}
-        </div>
-      </div>
+            {prediction.points === 3 ? "+3 pts" : prediction.points === 1 ? "+1 pt" : "+0 pts"}
+        </span>
+    ) : null;
 
-      {/* Times e placar */}
-      <div className="flex items-center justify-between gap-2">
-        {/* Time da casa */}
-        <div className="flex-1 flex flex-col items-center gap-1">
-          {match.home_team_crest && (
-            <Image src={match.home_team_crest} alt={match.home_team} width={32} height={32} className="object-contain" />
-          )}
-          <span className="text-xs font-semibold text-gray-800 text-center leading-tight">
-            {match.home_team}
-          </span>
-        </div>
-
-        {/* Placar e inputs */}
-        <div className="flex flex-col items-center gap-1">
-          {/* Resultado real (se jogo terminado) */}
-          {(finished || live) && match.home_score !== null && (
-            <div className="flex items-center gap-1.5 text-base font-bold text-gray-900">
-              <span>{match.home_score}</span>
-              <span className="text-gray-400">×</span>
-              <span>{match.away_score}</span>
+    return (
+        <div className={`bg-copa-dark-800 rounded-2xl border mb-3 px-4 py-4 ${live ? "border-copa-red/60 shadow-lg shadow-copa-red/10" : "border-white/10"
+            }`}>
+            {/* Header: Data + badges */}
+            <div className="flex justify-between items-center mb-3">
+                <span className="text-xs text-white/40">{formattedDate}</span>
+                <div className="flex items-center gap-1.5">
+                    {live && (
+                        <span className="text-xs bg-copa-red/20 text-copa-red font-bold px-2 py-0.5 rounded-full animate-pulse border border-copa-red/30">
+                            AO VIVO
+                        </span>
+                    )}
+                    {finished && (
+                        <span className="text-xs bg-white/10 text-white/40 px-2 py-0.5 rounded-full">
+                            Encerrado
+                        </span>
+                    )}
+                    {pointsBadge}
+                </div>
             </div>
-          )}
 
-          {/* Inputs de palpite */}
-          <div className="flex items-center gap-1.5">
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={started}
-              value={home}
-              onChange={(e) => { setHome(e.target.value); setSaved(false); }}
-              className="w-10 h-10 text-center text-base font-bold border-2 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:border-green-500 border-gray-300"
-            />
-            <span className="text-gray-500 font-bold">×</span>
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={started}
-              value={away}
-              onChange={(e) => { setAway(e.target.value); setSaved(false); }}
-              className="w-10 h-10 text-center text-base font-bold border-2 rounded-lg disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:border-green-500 border-gray-300"
-            />
-          </div>
+            {/* Times e placar */}
+            <div className="flex items-center justify-between gap-3">
+                {/* Time da casa */}
+                <div className="flex-1 flex flex-col items-center gap-1.5">
+                    {match.home_team_crest && (
+                        <Image src={match.home_team_crest} alt={translateTeamName(match.home_team)} width={36} height={36} className="object-contain drop-shadow" />
+                    )}
+                    <span className="text-xs font-semibold text-white text-center leading-tight">
+                        {translateTeamName(match.home_team)}
+                    </span>
+                </div>
 
-          {/* Botão salvar / status */}
-          {!started ? (
-            <button
-              onClick={handleSave}
-              disabled={isPending || home === "" || away === "" || saved}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
-                saved
-                  ? "bg-green-100 text-green-700"
-                  : "bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-400"
-              }`}
-            >
-              {isPending ? "Salvando..." : saved ? "✓ Salvo" : "Salvar"}
-            </button>
-          ) : !prediction ? (
-            <span className="text-xs text-gray-400">Sem palpite</span>
-          ) : null}
+                {/* Centro: Resultado real + Palpite */}
+                <div className="flex flex-col items-center gap-2 min-w-[120px]">
+                    {/* Resultado real */}
+                    {(finished || live) && match.home_score !== null && (
+                        <div className="flex items-center gap-2 text-lg font-black text-white">
+                            <span>{match.home_score}</span>
+                            <span className="text-white/30">–</span>
+                            <span>{match.away_score}</span>
+                        </div>
+                    )}
+
+                    {/* Palpite: modo leitura */}
+                    {!editing && hasPrediction && (
+                        <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-1.5">
+                                <span className="text-sm font-bold text-white">{home}</span>
+                                <span className="text-white/30 text-xs">×</span>
+                                <span className="text-sm font-bold text-white">{away}</span>
+                            </div>
+                            {!started && (
+                                <button
+                                    onClick={() => setEditing(true)}
+                                    className="p-1.5 rounded-lg bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors"
+                                >
+                                    <Pencil size={13} />
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Palpite: modo edição */}
+                    {editing && !started && (
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="flex items-center gap-1.5">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={99}
+                                    value={home}
+                                    onChange={(e) => setHome(e.target.value)}
+                                    className="w-11 h-11 text-center text-base font-bold bg-white/10 border-2 border-copa-red/60 rounded-xl text-white focus:outline-none focus:border-copa-red"
+                                />
+                                <span className="text-white/40 font-bold">×</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={99}
+                                    value={away}
+                                    onChange={(e) => setAway(e.target.value)}
+                                    className="w-11 h-11 text-center text-base font-bold bg-white/10 border-2 border-copa-red/60 rounded-xl text-white focus:outline-none focus:border-copa-red"
+                                />
+                            </div>
+                            <div className="flex gap-1.5">
+                                {hasPrediction && (
+                                    <button
+                                        onClick={handleCancel}
+                                        className="flex items-center gap-1 text-xs bg-white/10 hover:bg-white/20 text-white/60 px-3 py-1.5 rounded-lg transition-colors"
+                                    >
+                                        <X size={12} />
+                                        Cancelar
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleSave}
+                                    disabled={isPending || home === "" || away === ""}
+                                    className="flex items-center gap-1 text-xs bg-copa-red hover:bg-red-700 disabled:opacity-50 text-white font-bold px-3 py-1.5 rounded-lg transition-colors"
+                                >
+                                    <Check size={12} />
+                                    {isPending ? "Salvando..." : "Salvar"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sem palpite + jogo iniciado */}
+                    {started && !hasPrediction && (
+                        <span className="text-xs text-white/30">Sem palpite</span>
+                    )}
+
+                    {/* Jogo não iniciado, sem palpite, não editando */}
+                    {!started && !hasPrediction && !editing && (
+                        <button
+                            onClick={() => setEditing(true)}
+                            className="text-xs text-copa-red font-medium hover:underline"
+                        >
+                            + Palpitar
+                        </button>
+                    )}
+                </div>
+
+                {/* Time visitante */}
+                <div className="flex-1 flex flex-col items-center gap-1.5">
+                    {match.away_team_crest && (
+                        <Image src={match.away_team_crest} alt={translateTeamName(match.away_team)} width={36} height={36} className="object-contain drop-shadow" />
+                    )}
+                    <span className="text-xs font-semibold text-white text-center leading-tight">
+                        {translateTeamName(match.away_team)}
+                    </span>
+                </div>
+            </div>
+
+            {match.stadium && (
+                <div className="flex items-center justify-center gap-1 mt-3">
+                    <MapPin size={10} className="text-white/30" />
+                    <p className="text-xs text-white/30">
+                        {match.stadium}{match.city ? `, ${match.city}` : ""}
+                    </p>
+                </div>
+            )}
         </div>
-
-        {/* Time visitante */}
-        <div className="flex-1 flex flex-col items-center gap-1">
-          {match.away_team_crest && (
-            <Image src={match.away_team_crest} alt={match.away_team} width={32} height={32} className="object-contain" />
-          )}
-          <span className="text-xs font-semibold text-gray-800 text-center leading-tight">
-            {match.away_team}
-          </span>
-        </div>
-      </div>
-
-      {match.stadium && (
-        <p className="text-xs text-gray-400 text-center mt-2">
-          📍 {match.stadium}{match.city ? `, ${match.city}` : ""}
-        </p>
-      )}
-    </div>
-  );
+    );
 }

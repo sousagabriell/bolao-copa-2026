@@ -1,11 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { toast } from "sonner";
+import { Copy, ExternalLink, Upload, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
 
 const PIX_LINK = "https://nubank.com.br/cobrar/20z6y/69fbc1e5-a16e-4b75-b54e-5e630ecac01e";
-const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(PIX_LINK)}`;
+const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(PIX_LINK)}`;
 
 type PaymentStatus = "pending" | "pending_approval" | "paid" | "rejected";
 
@@ -15,8 +17,7 @@ export default function PagamentoClient() {
   const [showUpload, setShowUpload] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadStatus = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,14 +34,12 @@ export default function PagamentoClient() {
 
   async function copyLink() {
     await navigator.clipboard.writeText(PIX_LINK);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
+    toast.success("Link copiado!");
   }
 
   async function submitProof() {
-    if (!file) { setError("Selecione o comprovante antes de enviar."); return; }
+    if (!file) { toast.error("Selecione o comprovante antes de enviar."); return; }
     setUploading(true);
-    setError("");
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -53,7 +52,7 @@ export default function PagamentoClient() {
       .upload(path, file, { upsert: true });
 
     if (uploadErr) {
-      setError("Erro ao enviar o arquivo. Tente novamente.");
+      toast.error("Erro ao enviar o arquivo. Tente novamente.");
       setUploading(false);
       return;
     }
@@ -67,12 +66,20 @@ export default function PagamentoClient() {
     });
 
     if (res.ok) {
+      toast.success("Comprovante enviado! Aguarde a aprovação.");
       setStatus("pending_approval");
       setShowUpload(false);
+      setFile(null);
     } else {
-      setError("Erro ao enviar solicitação. Tente novamente.");
+      toast.error("Erro ao enviar solicitação. Tente novamente.");
     }
     setUploading(false);
+  }
+
+  async function handleRefreshSession() {
+    setRefreshing(true);
+    await supabase.auth.refreshSession();
+    window.location.href = "/app/palpites";
   }
 
   async function handleLogout() {
@@ -82,8 +89,8 @@ export default function PagamentoClient() {
 
   if (status === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-700 to-green-900">
-        <div className="text-5xl animate-spin">⚽</div>
+      <div className="min-h-screen flex items-center justify-center" style={{backgroundColor:'#0B1120',backgroundImage:'url(/assets/world-cup-2026-background-free-vector.jpg)',backgroundSize:'cover',backgroundPosition:'center'}}>
+        <div className="w-10 h-10 border-2 border-copa-red border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -91,19 +98,34 @@ export default function PagamentoClient() {
   // Aguardando aprovação do admin
   if (status === "pending_approval") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-700 to-green-900 px-4">
-        <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8 text-center">
-          <div className="text-6xl mb-4">⏳</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-3">Comprovante enviado!</h1>
-          <p className="text-gray-600 text-sm leading-relaxed">
+      <div className="min-h-screen flex items-center justify-center px-4 relative" style={{backgroundImage:'url(/assets/world-cup-2026-background-free-vector.jpg)',backgroundSize:'cover',backgroundPosition:'center'}}>
+        <div className="absolute inset-0 bg-black/70" />
+        <div className="w-full max-w-sm text-center relative z-10">
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 rounded-full bg-copa-gold/10 border border-copa-gold/30 flex items-center justify-center">
+              <Clock size={36} className="text-copa-gold" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-black text-white mb-3">Comprovante enviado!</h1>
+          <p className="text-white/60 text-sm leading-relaxed mb-2">
             Estamos avaliando seu pagamento, aguarde enquanto liberamos seu acesso.
           </p>
-          <p className="text-xs text-gray-400 mt-4">
+          <p className="text-xs text-white/30 mb-8">
             Você será liberado em breve após a aprovação do administrador.
           </p>
+
+          <button
+            onClick={handleRefreshSession}
+            disabled={refreshing}
+            className="w-full bg-copa-red hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 mb-4"
+          >
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? "Verificando..." : "Atualizar conta"}
+          </button>
+
           <button
             onClick={handleLogout}
-            className="mt-8 text-sm text-gray-400 hover:text-gray-600 underline"
+            className="text-sm text-white/30 hover:text-white/60 transition-colors"
           >
             Sair da conta
           </button>
@@ -111,88 +133,101 @@ export default function PagamentoClient() {
       </div>
     );
   }
-
-  // Tela principal de pagamento (pending / rejected)
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-700 to-green-900 px-4 py-8">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 relative" style={{backgroundImage:'url(/assets/world-cup-2026-background-free-vector.jpg)',backgroundSize:'cover',backgroundPosition:'center'}}>
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="w-full max-w-sm relative z-10">
 
         {status === "rejected" && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5 text-center">
-            <p className="text-sm font-semibold text-red-700">Pagamento não aprovado</p>
-            <p className="text-xs text-red-500 mt-1">
-              Envie um novo comprovante ou entre em contato com o administrador.
-            </p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-4 mb-6 flex items-start gap-3">
+            <XCircle size={20} className="text-red-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-red-400">Pagamento não aprovado</p>
+              <p className="text-xs text-red-400/70 mt-1">
+                Envie um novo comprovante ou entre em contato com o administrador.
+              </p>
+            </div>
           </div>
         )}
 
-        <div className="text-center mb-5">
-          <div className="text-5xl mb-3">💸</div>
-          <h1 className="text-2xl font-bold text-gray-900">Pagar Inscrição</h1>
-          <p className="text-gray-500 text-sm mt-1">
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-black text-white tracking-wide">Pagar Inscrição</h1>
+          <p className="text-white/50 text-sm mt-1">
             Faça o PIX e envie o comprovante para liberar seu acesso
           </p>
         </div>
 
-        {/* QR Code gerado via qrserver.com */}
-        <div className="flex justify-center mb-4">
+        {/* QR Code */}
+        <div className="bg-white rounded-2xl p-5 mb-4 flex flex-col items-center">
           <Image
             src={QR_URL}
             alt="QR Code PIX Nubank"
-            width={180}
-            height={180}
-            className="rounded-xl border border-gray-100"
+            width={200}
+            height={200}
+            className="rounded-xl"
             unoptimized
           />
+          <p className="text-xs text-gray-500 mt-3 font-medium">Escaneie com o app do banco</p>
         </div>
 
-        <a
-          href={PIX_LINK}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full bg-purple-600 hover:bg-purple-700 text-white text-center font-semibold py-3 rounded-xl mb-2 transition-colors"
-        >
-          Abrir link do PIX (Nubank)
-        </a>
+        {/* Botões PIX */}
+        <div className="space-y-2 mb-5">
+          <a
+            href={PIX_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full bg-dark hover:bg-black/80 text-white font-bold py-3.5 rounded-xl transition-colors"
+          >
+            <ExternalLink size={16} />
+            Abrir link do PIX (Nubank)
+          </a>
 
-        <button
-          onClick={copyLink}
-          className="w-full border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors mb-5"
-        >
-          {copied ? "✓ Link copiado!" : "Copiar link"}
-        </button>
+          <button
+            onClick={copyLink}
+            className="flex items-center justify-center gap-2 w-full bg-white/10 border border-white/20 text-white/80 py-3 rounded-xl text-sm hover:bg-white/15 transition-colors"
+          >
+            <Copy size={15} />
+            Copiar link
+          </button>
+        </div>
 
-        <div className="border-t border-gray-100 pt-5">
+        {/* Upload comprovante */}
+        <div className="border-t border-white/10 pt-5">
           {!showUpload ? (
             <button
               onClick={() => setShowUpload(true)}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition-colors"
+              className="flex items-center justify-center gap-2 w-full bg-copa-red hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition-colors"
             >
+              <CheckCircle size={16} />
               Já paguei — Enviar comprovante
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-gray-700">Selecione o comprovante:</p>
-              <input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-green-50 file:text-green-700 hover:file:bg-green-100 cursor-pointer"
-              />
-              {file && <p className="text-xs text-gray-400 truncate">{file.name}</p>}
-              {error && (
-                <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
-              )}
+              <p className="text-xs font-semibold text-white/70 uppercase tracking-wider">Selecione o comprovante:</p>
+
+              <label className="flex flex-col items-center justify-center w-full h-28 bg-white/5 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-copa-red/60 transition-colors">
+                <Upload size={22} className="text-white/40 mb-2" />
+                <span className="text-sm text-white/50">
+                  {file ? file.name : "Clique para selecionar"}
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="hidden"
+                />
+              </label>
+
               <button
                 onClick={submitProof}
                 disabled={uploading || !file}
-                className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white font-semibold py-3 rounded-xl transition-colors"
+                className="w-full bg-copa-red hover:bg-red-700 disabled:opacity-50 text-white font-bold py-3.5 rounded-xl transition-colors"
               >
                 {uploading ? "Enviando..." : "Enviar solicitação"}
               </button>
               <button
-                onClick={() => { setShowUpload(false); setError(""); setFile(null); }}
-                className="w-full text-sm text-gray-400 hover:text-gray-600"
+                onClick={() => { setShowUpload(false); setFile(null); }}
+                className="w-full text-sm text-white/40 hover:text-white/70 py-1"
               >
                 Cancelar
               </button>
@@ -202,7 +237,7 @@ export default function PagamentoClient() {
 
         <button
           onClick={handleLogout}
-          className="mt-5 w-full text-xs text-gray-300 hover:text-gray-500"
+          className="mt-6 w-full text-xs text-white/20 hover:text-white/50 transition-colors"
         >
           Sair da conta
         </button>
@@ -210,5 +245,3 @@ export default function PagamentoClient() {
     </div>
   );
 }
-
-

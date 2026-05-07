@@ -1,9 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Mail, Lock, User } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -46,75 +48,96 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-green-700 to-green-900 px-4">
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-8">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-copa-dark">
+        <div className="w-full max-w-sm">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="text-5xl mb-3">⚽</div>
-          <h1 className="text-2xl font-bold text-gray-900">Bolão Copa 2026</h1>
-          <p className="text-gray-500 text-sm mt-1">Crie sua conta</p>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/assets/Logo_copa_2026.png"
+              alt="Copa 2026"
+              width={80}
+              height={80}
+              className="rounded-2xl"
+              unoptimized
+            />
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-wide">Bolão Copa 2026</h1>
+          <p className="text-white/50 text-sm mt-1">Crie sua conta</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nome
-            </label>
-            <input
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Seu nome"
-            />
-          </div>
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-sm">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">
+                Nome
+              </label>
+              <div className="relative">
+                <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red focus:ring-1 focus:ring-copa-red"
+                  placeholder="Seu nome"
+                />
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              E-mail
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="seu@email.com"
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">
+                E-mail
+              </label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red focus:ring-1 focus:ring-copa-red"
+                  placeholder="seu@email.com"
+                />
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Senha
-            </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
-              placeholder="Mínimo 8 caracteres"
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold text-white/70 mb-1.5 uppercase tracking-wider">
+                Senha
+              </label>
+              <div className="relative">
+                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl pl-9 pr-3 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red focus:ring-1 focus:ring-copa-red"
+                  placeholder="Mínimo 8 caracteres"
+                />
+              </div>
+            </div>
 
-          {error && (
-            <p className="text-red-600 text-sm bg-red-50 rounded-lg px-3 py-2">
-              {error}
-            </p>
-          )}
+            {error && (
+              <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                {error}
+              </p>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-semibold py-2.5 rounded-lg transition-colors"
-          >
-            {loading ? "Criando conta..." : "Criar conta"}
-          </button>
-        </form>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-copa-red hover:bg-red-700 disabled:opacity-60 text-white font-bold py-3 rounded-xl transition-colors text-sm tracking-wide mt-2"
+            >
+              {loading ? "Criando conta..." : "Criar conta"}
+            </button>
+          </form>
+        </div>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-white/40 mt-6">
           Já tem conta?{" "}
-          <Link href="/login" className="text-green-600 font-medium hover:underline">
+          <Link href="/login" className="text-copa-gold font-semibold hover:underline">
             Faça login
           </Link>
         </p>

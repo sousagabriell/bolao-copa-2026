@@ -1,12 +1,14 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { Target, Trophy, User } from "lucide-react";
 
 const tabs = [
-  { href: "/app/palpites", label: "Palpites", icon: "⚽" },
-  { href: "/app/ranking", label: "Ranking", icon: "🏆" },
-  { href: "/app/perfil", label: "Perfil", icon: "👤" },
+  { href: "/app/palpites", label: "Palpites", Icon: Target },
+  { href: "/app/ranking", label: "Ranking", Icon: Trophy },
+  { href: "/app/perfil", label: "Perfil", Icon: User },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,10 +17,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-green-700 text-white px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">⚽</span>
-          <span className="font-bold text-sm">Bolão Copa 2026</span>
+      <header className="bg-copa-red text-white px-4 py-3 flex items-center justify-between shadow-lg">
+        <div className="flex items-center gap-3">
+          <Image
+            src="/assets/Logo_copa_2026.png"
+            alt="Copa 2026"
+            width={32}
+            height={32}
+            className="rounded"
+            unoptimized
+          />
+          <span className="font-bold text-sm tracking-wide">Bolão Copa 2026</span>
         </div>
       </header>
 
@@ -28,19 +37,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Tab bar inferior */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
-        {tabs.map((tab) => {
-          const active = pathname.startsWith(tab.href);
+      <nav className="fixed bottom-0 left-0 right-0 bg-copa-dark border-t border-red-700/50 flex z-50">
+        {tabs.map(({ href, label, Icon }) => {
+          const active = pathname.startsWith(href);
           return (
             <Link
-              key={tab.href}
-              href={tab.href}
-              className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 text-xs font-medium transition-colors ${
-                active ? "text-green-700" : "text-gray-400"
+              key={href}
+              href={href}
+              className={`flex-1 flex flex-col items-center py-3 gap-1 text-xs font-medium transition-colors ${
+                active ? "text-white" : "text-white/60"
               }`}
             >
-              <span className="text-xl">{tab.icon}</span>
-              <span>{tab.label}</span>
+              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+              <span>{label}</span>
             </Link>
           );
         })}
