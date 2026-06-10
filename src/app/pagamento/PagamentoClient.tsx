@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { Copy, ExternalLink, Upload, CheckCircle, Clock, XCircle, RefreshCw } from "lucide-react";
 
-const PIX_LINK = "https://nubank.com.br/cobrar/20z6y/69fbc1e5-a16e-4b75-b54e-5e630ecac01e";
+const PIX_LINK = "https://nubank.com.br/cobrar/20z6y/6a29e833-77ec-4f38-a178-434df8e717d8";
 const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(PIX_LINK)}`;
 
 type PaymentStatus = "pending" | "pending_approval" | "paid" | "rejected";
