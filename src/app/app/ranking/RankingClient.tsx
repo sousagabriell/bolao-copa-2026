@@ -153,18 +153,19 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
           onClick={() => setShowRules(false)}
         >
           <div
-            className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5"
+            className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5 max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 shrink-0" />
 
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-5 shrink-0">
               <h3 className="text-sm font-bold text-white">Regras de pontuação</h3>
               <button onClick={() => setShowRules(false)} className="text-white/40 hover:text-white p-1">
                 <X size={18} />
               </button>
             </div>
 
+            <div className="overflow-y-auto flex-1 pb-4">
             <div className="space-y-3 mb-5">
               <div className="flex items-center gap-3 bg-copa-gold/10 border border-copa-gold/30 rounded-xl px-4 py-3">
                 <span className="text-copa-gold font-black text-lg w-8 text-center">+3</span>
@@ -204,6 +205,7 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                 <span className="text-xs text-amber-600 font-semibold">🥉 3° lugar — 15%</span>
               </div>
             </div>
+            </div>{/* fim overflow-y-auto */}
           </div>
         </div>
       )}
