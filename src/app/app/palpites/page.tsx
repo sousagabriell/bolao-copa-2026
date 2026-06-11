@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { Match, Prediction } from "@/lib/types";
 import PalpitesClient from "./PalpitesClient";
 import PalpitesDayFilter from "./PalpitesDayFilter";
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
+
+const TZ = "America/Sao_Paulo";
 
 const STAGE_LABELS: Record<string, string> = {
   GROUP_STAGE: "Fase de Grupos",
@@ -43,9 +45,9 @@ export default async function PalpitesPage() {
     match,
     prediction: predictionMap.get(match.id),
     started: new Date(match.starts_at) <= new Date(),
-    formattedDate: format(new Date(match.starts_at), "dd/MM • HH:mm", { locale: ptBR }),
-    dayKey: format(new Date(match.starts_at), "yyyy-MM-dd"),
-    dayLabel: format(new Date(match.starts_at), "EEE dd/MM", { locale: ptBR }),
+    formattedDate: formatInTimeZone(new Date(match.starts_at), TZ, "dd/MM • HH:mm", { locale: ptBR }),
+    dayKey: formatInTimeZone(new Date(match.starts_at), TZ, "yyyy-MM-dd"),
+    dayLabel: formatInTimeZone(new Date(match.starts_at), TZ, "EEE dd/MM", { locale: ptBR }),
     stage: match.stage || "OUTROS",
     stageLabel: STAGE_LABELS[match.stage ?? ""] ?? (match.stage ?? "Outros"),
     groupName: match.group_name ?? null,
