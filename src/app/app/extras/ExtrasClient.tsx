@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { BonusQuestion, BonusAnswer } from "@/lib/types";
 import { submitBonusAnswer } from "./actions";
 import { toast } from "sonner";
-import { Star, Lock, Check, Info, X, ChevronDown } from "lucide-react";
+import { Star, Lock, Check, Info, X, ChevronDown, ChevronUp } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 
@@ -42,6 +42,7 @@ function QuestionCard({
 }) {
   const [selected, setSelected] = useState(answer?.answer ?? "");
   const [isPending, startTransition] = useTransition();
+  const [collapsed, setCollapsed] = useState(!!answer);
   const expired = isExpired(question);
   const scored = answer?.points !== null && answer?.points !== undefined;
   const locked = expired || scored;
@@ -52,93 +53,112 @@ function QuestionCard({
       try {
         await submitBonusAnswer(question.id, selected);
         toast.success("Resposta salva!");
+        setCollapsed(true);
       } catch (e: unknown) {
         toast.error(e instanceof Error ? e.message : "Erro ao salvar.");
       }
     });
   }
 
+  const borderClass = scored && (answer?.points ?? 0) > 0
+    ? "border-copa-gold/40"
+    : expired && !scored
+    ? "border-white/5 opacity-70"
+    : "border-white/10";
+
   return (
-    <div className={`bg-copa-dark-800 rounded-2xl border px-4 py-4 ${
-      scored && (answer?.points ?? 0) > 0
-        ? "border-copa-gold/40"
-        : expired && !scored
-        ? "border-white/5 opacity-70"
-        : "border-white/10"
-    }`}>
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3 mb-3">
+    <div className={`bg-copa-dark-800 rounded-2xl border ${borderClass}`}>
+      {/* Header — sempre visível, clicável para expandir/colapsar */}
+      <button
+        onClick={() => setCollapsed((v) => !v)}
+        className="w-full flex items-start justify-between gap-3 px-4 py-4 text-left"
+      >
         <div className="flex-1">
           <p className="text-sm font-semibold text-white leading-snug">{question.question}</p>
-          {question.description && (
-            <p className="text-xs text-white/40 mt-0.5">{question.description}</p>
+          {collapsed && answer && (
+            <p className="text-xs text-white/40 mt-0.5 truncate">
+              Sua resposta: <span className="text-white/70">{answer.answer}</span>
+            </p>
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {locked && <Lock size={12} className="text-white/30" />}
+          {locked && !collapsed && <Lock size={12} className="text-white/30" />}
           <PointsBadge points={scored ? (answer?.points ?? 0) : question.points} scored={scored} />
+          {collapsed
+            ? <ChevronDown size={14} className="text-white/30" />
+            : <ChevronUp size={14} className="text-white/30" />
+          }
         </div>
-      </div>
+      </button>
 
-      {/* Prazo */}
-      {question.closes_at && (
-        <p className="text-xs text-white/30 mb-3">
-          {expired ? "Encerrado" : `Até ${formatInTimeZone(new Date(question.closes_at), TZ, "dd/MM 'às' HH:mm", { locale: ptBR })}`}
-        </p>
-      )}
+      {/* Conteúdo expandido */}
+      {!collapsed && (
+        <div className="px-4 pb-4 space-y-3">
+          {question.description && (
+            <p className="text-xs text-white/40">{question.description}</p>
+          )}
 
-      {/* Input */}
-      {question.type === "select" && (
-        <div className="relative">
-          <select
-            value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-            disabled={locked}
-            className="w-full appearance-none bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 pr-8 text-sm text-white focus:outline-none focus:border-copa-red disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <option value="" disabled className="bg-copa-dark text-white">Selecione...</option>
-            {(question.options ?? []).map((opt) => (
-              <option key={opt} value={opt} className="bg-copa-dark text-white">{opt}</option>
-            ))}
-          </select>
-          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
-        </div>
-      )}
+          {/* Prazo */}
+          {question.closes_at && (
+            <p className="text-xs text-white/30">
+              {expired ? "Encerrado" : `Até ${formatInTimeZone(new Date(question.closes_at), TZ, "dd/MM 'às' HH:mm", { locale: ptBR })}`}
+            </p>
+          )}
 
-      {question.type === "number" && (
-        <select
-          value={selected}
-          onChange={(e) => setSelected(e.target.value)}
-          disabled={locked}
-          className="w-full appearance-none bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-copa-red disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <option value="" disabled className="bg-copa-dark text-white">Selecione...</option>
-          {Array.from(
-            { length: (question.max_value ?? 10) - (question.min_value ?? 0) + 1 },
-            (_, i) => (question.min_value ?? 0) + i
-          ).map((n) => (
-            <option key={n} value={String(n)} className="bg-copa-dark text-white">{n}</option>
-          ))}
-        </select>
-      )}
+          {/* Input */}
+          {question.type === "select" && (
+            <div className="relative">
+              <select
+                value={selected}
+                onChange={(e) => setSelected(e.target.value)}
+                disabled={locked}
+                className="w-full appearance-none bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 pr-8 text-sm text-white focus:outline-none focus:border-copa-red disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="" disabled className="bg-copa-dark text-white">Selecione...</option>
+                {(question.options ?? []).map((opt) => (
+                  <option key={opt} value={opt} className="bg-copa-dark text-white">{opt}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+            </div>
+          )}
 
-      {/* Botão salvar */}
-      {!locked && (
-        <button
-          onClick={handleSave}
-          disabled={isPending || !selected}
-          className="mt-3 flex items-center justify-center gap-1.5 w-full bg-copa-red hover:bg-red-700 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
-        >
-          <Check size={14} />
-          {isPending ? "Salvando..." : answer ? "Atualizar resposta" : "Salvar resposta"}
-        </button>
-      )}
+          {question.type === "number" && (
+            <select
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              disabled={locked}
+              className="w-full appearance-none bg-white/10 border border-white/20 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-copa-red disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="" disabled className="bg-copa-dark text-white">Selecione...</option>
+              {Array.from(
+                { length: (question.max_value ?? 10) - (question.min_value ?? 0) + 1 },
+                (_, i) => (question.min_value ?? 0) + i
+              ).map((n) => (
+                <option key={n} value={String(n)} className="bg-copa-dark text-white">{n}</option>
+              ))}
+            </select>
+          )}
 
-      {/* Resposta correta após apuração */}
-      {scored && question.correct_answer && (
-        <div className="mt-3 flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
-          <span className="text-xs text-white/40">Resposta correta:</span>
-          <span className="text-xs font-semibold text-white">{question.correct_answer}</span>
+          {/* Botão salvar */}
+          {!locked && (
+            <button
+              onClick={handleSave}
+              disabled={isPending || !selected}
+              className="flex items-center justify-center gap-1.5 w-full bg-copa-red hover:bg-red-700 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl text-sm transition-colors"
+            >
+              <Check size={14} />
+              {isPending ? "Salvando..." : answer ? "Atualizar resposta" : "Salvar resposta"}
+            </button>
+          )}
+
+          {/* Resposta correta após apuração */}
+          {scored && question.correct_answer && (
+            <div className="flex items-center gap-2 bg-white/5 rounded-xl px-3 py-2">
+              <span className="text-xs text-white/40">Resposta correta:</span>
+              <span className="text-xs font-semibold text-white">{question.correct_answer}</span>
+            </div>
+          )}
         </div>
       )}
     </div>

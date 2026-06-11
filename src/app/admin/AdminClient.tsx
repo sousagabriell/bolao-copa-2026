@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
-import { RefreshCw, CheckCircle, XCircle, Users, RotateCcw, Star, Plus, ChevronDown } from "lucide-react";
+import { RefreshCw, CheckCircle, XCircle, Users, RotateCcw, Star, Plus, ChevronDown, Calendar, Pencil, Save } from "lucide-react";
 
 interface UserRow {
   id: string;
@@ -29,6 +29,41 @@ interface BonusQuestionRow {
   max_value: number | null;
 }
 
+interface MatchRow {
+  id: number;
+  external_id: number;
+  home_team: string;
+  away_team: string;
+  starts_at: string;
+  status: string;
+  home_score_regular: number | null;
+  away_score_regular: number | null;
+  stage: string;
+  group_name: string | null;
+  stadium: string | null;
+  city: string | null;
+}
+
+const EMPTY_MATCH_FORM = {
+  home_team: "",
+  away_team: "",
+  starts_at: "",
+  stage: "GROUP_STAGE",
+  group_name: "",
+  stadium: "",
+  city: "",
+  matchday: "",
+};
+
+const STAGES = [
+  { value: "GROUP_STAGE", label: "Fase de grupos" },
+  { value: "LAST_16", label: "Oitavas de final" },
+  { value: "QUARTER_FINALS", label: "Quartas de final" },
+  { value: "SEMI_FINALS", label: "Semifinal" },
+  { value: "THIRD_PLACE", label: "Terceiro lugar" },
+  { value: "FINAL", label: "Final" },
+];
+
 const EMPTY_FORM = {
   question: "",
   description: "",
@@ -47,6 +82,15 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [proofModal, setProofModal] = useState<string | null>(null);
+
+  // Matches state
+  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [showMatchForm, setShowMatchForm] = useState(false);
+  const [matchForm, setMatchForm] = useState(EMPTY_MATCH_FORM);
+  const [savingMatch, setSavingMatch] = useState(false);
+  const [matchResults, setMatchResults] = useState<Record<number, { home: string; away: string }>>({});
+  const [savingResult, setSavingResult] = useState<number | null>(null);
+  const [matchFilter, setMatchFilter] = useState<"upcoming" | "finished" | "all">("upcoming");
 
   // Bonus questions state
   const [bonusQuestions, setBonusQuestions] = useState<BonusQuestionRow[]>([]);
@@ -75,7 +119,86 @@ export default function AdminPage() {
     }
   }, []);
 
-  useEffect(() => { loadUsers(); loadBonusQuestions(); }, [loadUsers, loadBonusQuestions]);
+  const loadMatches = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/matches");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setMatches(data);
+        const results: Record<number, { home: string; away: string }> = {};
+        for (const m of data) {
+          results[m.id] = {
+            home: m.home_score_regular !== null ? String(m.home_score_regular) : "",
+            away: m.away_score_regular !== null ? String(m.away_score_regular) : "",
+          };
+        }
+        setMatchResults(results);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar partidas:", e);
+    }
+  }, []);
+
+  useEffect(() => { loadUsers(); loadBonusQuestions(); loadMatches(); }, [loadUsers, loadBonusQuestions, loadMatches]);
+
+  async function saveMatch() {
+    if (!matchForm.home_team || !matchForm.away_team || !matchForm.starts_at || !matchForm.stage) {
+      toast.error("Preencha times, data/hora e fase.");
+      return;
+    }
+    setSavingMatch(true);
+    const res = await fetch("/api/admin/matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        home_team: matchForm.home_team,
+        away_team: matchForm.away_team,
+        starts_at: new Date(matchForm.starts_at).toISOString(),
+        stage: matchForm.stage,
+        group_name: matchForm.group_name || undefined,
+        stadium: matchForm.stadium || undefined,
+        city: matchForm.city || undefined,
+        matchday: matchForm.matchday ? parseInt(matchForm.matchday) : undefined,
+      }),
+    });
+    if (res.ok) {
+      toast.success("Partida criada!");
+      setMatchForm(EMPTY_MATCH_FORM);
+      setShowMatchForm(false);
+      await loadMatches();
+    } else {
+      const d = await res.json();
+      toast.error(d.error ?? "Erro ao criar partida.");
+    }
+    setSavingMatch(false);
+  }
+
+  async function saveResult(id: number, finish: boolean) {
+    const r = matchResults[id];
+    if (!r || r.home === "" || r.away === "") {
+      toast.error("Informe o placar dos dois times.");
+      return;
+    }
+    setSavingResult(id);
+    const res = await fetch("/api/admin/matches", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        home_score_regular: parseInt(r.home),
+        away_score_regular: parseInt(r.away),
+        ...(finish ? { status: "FINISHED" } : {}),
+      }),
+    });
+    if (res.ok) {
+      toast.success(finish ? "Resultado salvo e pontos calculados!" : "Placar salvo.");
+      await loadMatches();
+    } else {
+      const d = await res.json();
+      toast.error(d.error ?? "Erro ao salvar.");
+    }
+    setSavingResult(null);
+  }
 
   async function saveBonusQuestion() {
     if (!bonusForm.question || !bonusForm.points) {
@@ -188,6 +311,11 @@ export default function AdminPage() {
     revoked:          "Revogado",
   };
 
+  const [openSection, setOpenSection] = useState<string | null>("aprovacoes");
+  function toggleSection(key: string) {
+    setOpenSection((s) => (s === key ? null : key));
+  }
+
   const pendingApproval = users.filter((u) => u.payment_status === "pending_approval");
   const others = users.filter((u) => u.payment_status !== "pending_approval");
 
@@ -207,12 +335,19 @@ export default function AdminPage() {
 
         {/* Aprovacoes pendentes */}
         {pendingApproval.length > 0 && (
-          <div className="bg-copa-dark-800 rounded-2xl border border-copa-gold/30 p-5">
-            <h2 className="text-xs font-bold text-copa-gold uppercase tracking-widest mb-4 flex items-center gap-2">
-              <CheckCircle size={14} />
-              Aguardando aprovacao ({pendingApproval.length})
-            </h2>
-            <div className="space-y-4">
+          <div className="bg-copa-dark-800 rounded-2xl border border-copa-gold/30">
+            <button
+              onClick={() => toggleSection("aprovacoes")}
+              className="w-full flex items-center justify-between px-5 py-4"
+            >
+              <h2 className="text-xs font-bold text-copa-gold uppercase tracking-widest flex items-center gap-2">
+                <CheckCircle size={14} />
+                Aguardando aprovacao ({pendingApproval.length})
+              </h2>
+              <ChevronDown size={14} className={`text-copa-gold/50 transition-transform duration-200 ${openSection === "aprovacoes" ? "rotate-180" : ""}`} />
+            </button>
+            {openSection === "aprovacoes" && (
+            <div className="px-5 pb-5 space-y-4">
               {pendingApproval.map((u) => (
                 <div key={u.id} className="bg-white/5 rounded-xl border border-white/10 p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -269,37 +404,281 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
         {/* Sincronizacao */}
-        <div className="bg-copa-dark-800 rounded-2xl border border-white/10 p-5">
-          <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-3">Sincronizacao de Jogos</h2>
+        <div className="bg-copa-dark-800 rounded-2xl border border-white/10">
           <button
-            onClick={syncMatches}
-            disabled={syncing}
-            className="flex items-center gap-2 bg-copa-red hover:bg-red-700 disabled:opacity-60 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+            onClick={() => toggleSection("sincronizacao")}
+            className="w-full flex items-center justify-between px-5 py-4"
           >
-            <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
-            {syncing ? "Sincronizando..." : "Sincronizar agora"}
+            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+              <RefreshCw size={14} />
+              Sincronizacao de Jogos
+            </h2>
+            <ChevronDown size={14} className={`text-white/30 transition-transform duration-200 ${openSection === "sincronizacao" ? "rotate-180" : ""}`} />
           </button>
+          {openSection === "sincronizacao" && (
+            <div className="px-5 pb-5">
+              <button
+                onClick={syncMatches}
+                disabled={syncing}
+                className="flex items-center gap-2 bg-copa-red hover:bg-red-700 disabled:opacity-60 text-white font-bold px-4 py-2.5 rounded-xl text-sm transition-colors"
+              >
+                <RefreshCw size={14} className={syncing ? "animate-spin" : ""} />
+                {syncing ? "Sincronizando..." : "Sincronizar agora"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Gerenciar Partidas */}
+        <div className="bg-copa-dark-800 rounded-2xl border border-white/10">
+          <div className="flex items-center justify-between px-5 py-4">
+            <button
+              onClick={() => toggleSection("partidas")}
+              className="flex-1 flex items-center justify-between"
+            >
+              <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                <Calendar size={14} />
+                Partidas ({matches.length})
+              </h2>
+              <ChevronDown size={14} className={`text-white/30 transition-transform duration-200 ${openSection === "partidas" ? "rotate-180" : ""}`} />
+            </button>
+            {openSection === "partidas" && (
+              <button
+                onClick={() => setShowMatchForm((v) => !v)}
+                className="flex items-center gap-1 text-xs bg-copa-red hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg transition-colors ml-3"
+              >
+                <Plus size={12} />
+                Nova
+              </button>
+            )}
+          </div>
+          {openSection === "partidas" && (
+          <div className="px-5 pb-5">
+
+          {/* Formulário nova partida */}
+          {showMatchForm && (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-4 space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Time da casa *"
+                  value={matchForm.home_team}
+                  onChange={(e) => setMatchForm((f) => ({ ...f, home_team: e.target.value }))}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                />
+                <input
+                  type="text"
+                  placeholder="Time visitante *"
+                  value={matchForm.away_team}
+                  onChange={(e) => setMatchForm((f) => ({ ...f, away_team: e.target.value }))}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/40 mb-1">Data e hora (horário local) *</label>
+                <input
+                  type="datetime-local"
+                  value={matchForm.starts_at}
+                  onChange={(e) => setMatchForm((f) => ({ ...f, starts_at: e.target.value }))}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-copa-red"
+                />
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs text-white/40 mb-1">Fase *</label>
+                  <div className="relative">
+                    <select
+                      value={matchForm.stage}
+                      onChange={(e) => setMatchForm((f) => ({ ...f, stage: e.target.value }))}
+                      className="w-full appearance-none bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-copa-red"
+                    >
+                      {STAGES.map((s) => (
+                        <option key={s.value} value={s.value} className="bg-copa-dark">{s.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="w-24">
+                  <label className="block text-xs text-white/40 mb-1">Grupo</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: A"
+                    value={matchForm.group_name}
+                    onChange={(e) => setMatchForm((f) => ({ ...f, group_name: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                  />
+                </div>
+                <div className="w-20">
+                  <label className="block text-xs text-white/40 mb-1">Rodada</label>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="1"
+                    value={matchForm.matchday}
+                    onChange={(e) => setMatchForm((f) => ({ ...f, matchday: e.target.value }))}
+                    className="w-full bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Estádio"
+                  value={matchForm.stadium}
+                  onChange={(e) => setMatchForm((f) => ({ ...f, stadium: e.target.value }))}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                />
+                <input
+                  type="text"
+                  placeholder="Cidade"
+                  value={matchForm.city}
+                  onChange={(e) => setMatchForm((f) => ({ ...f, city: e.target.value }))}
+                  className="flex-1 bg-white/10 border border-white/20 rounded-xl px-3 py-2 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
+                />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={saveMatch}
+                  disabled={savingMatch}
+                  className="flex-1 bg-copa-red hover:bg-red-700 disabled:opacity-60 text-white font-bold py-2 rounded-xl text-sm transition-colors"
+                >
+                  {savingMatch ? "Salvando..." : "Criar partida"}
+                </button>
+                <button
+                  onClick={() => { setShowMatchForm(false); setMatchForm(EMPTY_MATCH_FORM); }}
+                  className="px-4 text-sm text-white/40 hover:text-white/70"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Filtro */}
+          <div className="flex gap-2 mb-3">
+            {(["upcoming", "finished", "all"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setMatchFilter(f)}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                  matchFilter === f ? "bg-copa-red text-white" : "bg-white/10 text-white/40 hover:text-white/70"
+                }`}
+              >
+                {f === "upcoming" ? "Próximas" : f === "finished" ? "Encerradas" : "Todas"}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista de partidas */}
+          <div className="space-y-3">
+            {matches
+              .filter((m) => {
+                if (matchFilter === "upcoming") return m.status !== "FINISHED";
+                if (matchFilter === "finished") return m.status === "FINISHED";
+                return true;
+              })
+              .slice(0, 20)
+              .map((m) => {
+                const r = matchResults[m.id] ?? { home: "", away: "" };
+                const finished = m.status === "FINISHED";
+                const isSaving = savingResult === m.id;
+                const stageLabel = STAGES.find((s) => s.value === m.stage)?.label ?? m.stage;
+                return (
+                  <div key={m.id} className={`bg-white/5 border rounded-xl p-4 ${finished ? "border-green-500/20" : "border-white/10"}`}>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">
+                          {m.home_team} <span className="text-white/30">x</span> {m.away_team}
+                        </p>
+                        <p className="text-xs text-white/30 mt-0.5">
+                          {new Date(m.starts_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · {stageLabel}
+                          {m.external_id < 0 && <span className="ml-1 text-copa-gold">(manual)</span>}
+                        </p>
+                      </div>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium shrink-0 ${
+                        finished ? "bg-green-500/20 text-green-400" : "bg-white/10 text-white/40"
+                      }`}>
+                        {finished ? "Encerrado" : m.status}
+                      </span>
+                    </div>
+
+                    {/* Inputs de resultado */}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={r.home}
+                        onChange={(e) => setMatchResults((prev) => ({ ...prev, [m.id]: { ...prev[m.id], home: e.target.value } }))}
+                        placeholder="0"
+                        className="w-14 text-center bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-copa-red"
+                      />
+                      <span className="text-white/30 text-xs">x</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={r.away}
+                        onChange={(e) => setMatchResults((prev) => ({ ...prev, [m.id]: { ...prev[m.id], away: e.target.value } }))}
+                        placeholder="0"
+                        className="w-14 text-center bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-sm text-white focus:outline-none focus:border-copa-red"
+                      />
+                      <button
+                        onClick={() => saveResult(m.id, false)}
+                        disabled={isSaving}
+                        title="Salvar placar sem encerrar"
+                        className="flex items-center gap-1 text-xs bg-white/10 hover:bg-white/20 disabled:opacity-50 text-white/60 px-2.5 py-1.5 rounded-lg transition-colors"
+                      >
+                        <Save size={11} />
+                      </button>
+                      <button
+                        onClick={() => saveResult(m.id, true)}
+                        disabled={isSaving || finished}
+                        className="flex-1 flex items-center justify-center gap-1 text-xs bg-green-500/20 hover:bg-green-500/30 disabled:opacity-40 text-green-400 font-bold px-2.5 py-1.5 rounded-lg transition-colors border border-green-500/20"
+                      >
+                        <CheckCircle size={11} />
+                        {isSaving ? "Salvando..." : finished ? "Encerrado" : "Encerrar e pontuar"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+          </div>
+          )}
         </div>
 
         {/* Perguntas Extras */}
-        <div className="bg-copa-dark-800 rounded-2xl border border-white/10 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
-              <Star size={14} />
-              Perguntas Extras ({bonusQuestions.length})
-            </h2>
+        <div className="bg-copa-dark-800 rounded-2xl border border-white/10">
+          <div className="flex items-center justify-between px-5 py-4">
             <button
-              onClick={() => setShowBonusForm((v) => !v)}
-              className="flex items-center gap-1 text-xs bg-copa-red hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg transition-colors"
+              onClick={() => toggleSection("perguntas")}
+              className="flex-1 flex items-center justify-between"
             >
-              <Plus size={12} />
-              Nova
+              <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+                <Star size={14} />
+                Perguntas Extras ({bonusQuestions.length})
+              </h2>
+              <ChevronDown size={14} className={`text-white/30 transition-transform duration-200 ${openSection === "perguntas" ? "rotate-180" : ""}`} />
             </button>
+            {openSection === "perguntas" && (
+              <button
+                onClick={() => setShowBonusForm((v) => !v)}
+                className="flex items-center gap-1 text-xs bg-copa-red hover:bg-red-700 text-white font-bold px-3 py-1.5 rounded-lg transition-colors ml-3"
+              >
+                <Plus size={12} />
+                Nova
+              </button>
+            )}
           </div>
+          {openSection === "perguntas" && (
+          <div className="px-5 pb-5">
 
           {/* Formulário nova pergunta */}
           {showBonusForm && (
@@ -481,15 +860,24 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+          </div>
+          )}
         </div>
 
         {/* Todos os usuarios */}
-        <div className="bg-copa-dark-800 rounded-2xl border border-white/10 p-5">
-          <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-4 flex items-center gap-2">
-            <Users size={14} />
-            Todos os participantes ({users.length})
-          </h2>
-
+        <div className="bg-copa-dark-800 rounded-2xl border border-white/10">
+          <button
+            onClick={() => toggleSection("usuarios")}
+            className="w-full flex items-center justify-between px-5 py-4"
+          >
+            <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest flex items-center gap-2">
+              <Users size={14} />
+              Todos os participantes ({users.length})
+            </h2>
+            <ChevronDown size={14} className={`text-white/30 transition-transform duration-200 ${openSection === "usuarios" ? "rotate-180" : ""}`} />
+          </button>
+          {openSection === "usuarios" && (
+          <div className="px-5 pb-5">
           {loading ? (
             <div className="flex justify-center py-8">
               <div className="w-8 h-8 border-2 border-copa-red border-t-transparent rounded-full animate-spin" />
@@ -534,6 +922,8 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>
+          )}
+          </div>
           )}
         </div>
       </div>
