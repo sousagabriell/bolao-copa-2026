@@ -8,6 +8,7 @@ interface MatchWithData {
   match: Match;
   prediction: Prediction | undefined;
   started: boolean;
+  started10min: boolean;
   formattedDate: string;
   dayKey: string;
   dayLabel: string;
@@ -100,6 +101,7 @@ export default function PalpitesDayFilter({ matchesWithData }: Props) {
                 match={m.match}
                 prediction={m.prediction}
                 started={m.started}
+                started10min={m.started10min}
                 formattedDate={m.formattedDate}
               />
             ))}

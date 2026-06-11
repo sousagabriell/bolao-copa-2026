@@ -1,16 +1,30 @@
-﻿"use client";
+"use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { RankingEntry } from "@/lib/types";
-import { Trophy, Medal } from "lucide-react";
+import { Trophy, Medal, Info, X } from "lucide-react";
 
 interface Props {
   ranking: RankingEntry[];
   totalPrize: number;
   entryFee: number;
+  prizes: { first: number; second: number; third: number };
 }
 
-export default function RankingClient({ ranking, totalPrize, entryFee }: Props) {
+function formatBRL(value: number) {
+  return value.toFixed(2).replace(".", ",");
+}
+
+const PRIZE_POSITIONS = [
+  { label: "1°", percent: "60%", key: "first" as const, color: "text-copa-gold", bg: "bg-copa-gold/20", border: "border-copa-gold/40" },
+  { label: "2°", percent: "25%", key: "second" as const, color: "text-gray-300", bg: "bg-white/10", border: "border-white/20" },
+  { label: "3°", percent: "15%", key: "third" as const, color: "text-amber-600", bg: "bg-amber-600/10", border: "border-amber-600/30" },
+];
+
+export default function RankingClient({ ranking, totalPrize, entryFee, prizes }: Props) {
+  const [showRules, setShowRules] = useState(false);
+
   return (
     <div className="min-h-screen bg-copa-dark">
       {/* Premio banner */}
@@ -20,15 +34,43 @@ export default function RankingClient({ ranking, totalPrize, entryFee }: Props) 
           <p className="text-xs font-bold text-yellow-900 uppercase tracking-widest">Premio Acumulado</p>
         </div>
         <p className="text-5xl font-black text-white drop-shadow">
-          R$ {totalPrize.toFixed(2).replace(".", ",")}
+          R$ {formatBRL(totalPrize)}
         </p>
         <p className="text-xs text-yellow-900/80 mt-1.5">
-          {ranking.length} participantes × R$ {entryFee.toFixed(2).replace(".", ",")}
+          {ranking.length} participantes × R$ {formatBRL(entryFee)}
         </p>
+
+        {/* Distribuição do prêmio */}
+        {totalPrize > 0 && (
+          <div className="flex justify-center gap-3 mt-4">
+            {PRIZE_POSITIONS.map((pos) => (
+              <div
+                key={pos.key}
+                className={`flex flex-col items-center px-3 py-2 rounded-xl border ${pos.bg} ${pos.border}`}
+              >
+                <span className={`text-xs font-black ${pos.color}`}>{pos.label}</span>
+                <span className="text-white font-bold text-sm">R$ {formatBRL(prizes[pos.key])}</span>
+                <span className="text-yellow-900/70 text-xs">{pos.percent}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Header ranking + botão regras */}
+      <div className="max-w-lg mx-auto px-4 pt-4 flex items-center justify-between">
+        <p className="text-xs font-bold text-white/40 uppercase tracking-widest">Classificação</p>
+        <button
+          onClick={() => setShowRules(true)}
+          className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+        >
+          <Info size={14} />
+          Regras de pontuação
+        </button>
       </div>
 
       {/* Lista */}
-      <div className="max-w-lg mx-auto px-4 py-4 space-y-2">
+      <div className="max-w-lg mx-auto px-4 py-3 space-y-2">
         {ranking.length === 0 && (
           <div className="text-center py-12">
             <Medal size={40} className="text-white/20 mx-auto mb-3" />
@@ -45,7 +87,7 @@ export default function RankingClient({ ranking, totalPrize, entryFee }: Props) 
                 : i === 1
                 ? "bg-white/5 border-white/10"
                 : i === 2
-                ? "bg-white/5 border-white/10"
+                ? "bg-amber-600/5 border-amber-600/20"
                 : "bg-white/5 border-white/5"
             }`}
           >
@@ -64,7 +106,7 @@ export default function RankingClient({ ranking, totalPrize, entryFee }: Props) 
 
             {/* Avatar */}
             <div className={`w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 ${
-              i === 0 ? "border-copa-gold/60" : "border-white/10"
+              i === 0 ? "border-copa-gold/60" : i === 1 ? "border-gray-400/40" : i === 2 ? "border-amber-600/40" : "border-white/10"
             }`}>
               {entry.avatar_url ? (
                 <Image
@@ -83,17 +125,88 @@ export default function RankingClient({ ranking, totalPrize, entryFee }: Props) 
 
             {/* Nome e stats */}
             <div className="flex-1 min-w-0">
-              <p className={`font-semibold text-sm truncate ${i === 0 ? "text-copa-gold" : "text-white"}`}>
-                {entry.name}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className={`font-semibold text-sm truncate ${i === 0 ? "text-copa-gold" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-white"}`}>
+                  {entry.name}
+                </p>
+                {/* Prêmio top 3 */}
+                {i < 3 && totalPrize > 0 && (
+                  <span className="text-xs text-white/30 shrink-0">
+                    R$ {formatBRL(prizes[i === 0 ? "first" : i === 1 ? "second" : "third"])}
+                  </span>
+                )}
+              </div>
               <div className="flex gap-3 mt-0.5">
                 <span className="text-xs text-copa-gold/80">{entry.total_points ?? 0} pts</span>
-                <span className="text-xs text-white/30">{entry.exact_scores ?? 0} acertos</span>
+                <span className="text-xs text-white/30">{entry.exact_scores ?? 0} exatos</span>
+                <span className="text-xs text-white/20">{entry.correct_results ?? 0} resultados</span>
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Modal regras de pontuação */}
+      {showRules && (
+        <div
+          className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center"
+          onClick={() => setShowRules(false)}
+        >
+          <div
+            className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-bold text-white">Regras de pontuação</h3>
+              <button onClick={() => setShowRules(false)} className="text-white/40 hover:text-white p-1">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3 mb-5">
+              <div className="flex items-center gap-3 bg-copa-gold/10 border border-copa-gold/30 rounded-xl px-4 py-3">
+                <span className="text-copa-gold font-black text-lg w-8 text-center">+3</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Placar exato</p>
+                  <p className="text-xs text-white/40">Acertou o placar completo do jogo</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-400/30 rounded-xl px-4 py-3">
+                <span className="text-blue-400 font-black text-lg w-8 text-center">+1</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Resultado correto</p>
+                  <p className="text-xs text-white/40">Acertou quem ganhou ou que empatou</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 bg-red-500/10 border border-red-400/30 rounded-xl px-4 py-3">
+                <span className="text-red-400 font-black text-lg w-8 text-center">+0</span>
+                <div>
+                  <p className="text-sm font-semibold text-white">Errou</p>
+                  <p className="text-xs text-white/40">Resultado não corresponde ao palpite</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+              <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Critério de desempate</p>
+              <p className="text-xs text-white/50 leading-relaxed">
+                Em caso de empate em pontos, o participante com mais <span className="text-white/80 font-semibold">placares exatos</span> fica à frente. Se ainda empatado, quem tiver mais <span className="text-white/80 font-semibold">resultados corretos</span> leva a vantagem.
+              </p>
+            </div>
+
+            <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3 mt-3">
+              <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Distribuição do prêmio</p>
+              <div className="flex gap-4 mt-1">
+                <span className="text-xs text-copa-gold font-semibold">🥇 1° lugar — 60%</span>
+                <span className="text-xs text-gray-300 font-semibold">🥈 2° lugar — 25%</span>
+                <span className="text-xs text-amber-600 font-semibold">🥉 3° lugar — 15%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

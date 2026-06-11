@@ -3,18 +3,19 @@
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import { Match, Prediction, translateTeamName } from "@/lib/types";
-import { submitPrediction } from "./actions";
+import { submitPrediction, getMatchPredictions, MatchPredictionEntry } from "./actions";
 import { toast } from "sonner";
-import { Pencil, Check, X, MapPin } from "lucide-react";
+import { Pencil, Check, X, MapPin, Users, Loader2 } from "lucide-react";
 
 interface Props {
     match: Match;
     prediction: Prediction | undefined;
     started: boolean;
+    started10min: boolean;
     formattedDate: string;
 }
 
-export default function PalpitesClient({ match, prediction, started, formattedDate }: Props) {
+export default function PalpitesClient({ match, prediction, started, started10min, formattedDate }: Props) {
     const [home, setHome] = useState<string>(
         prediction?.home_score_pred !== undefined ? String(prediction.home_score_pred) : ""
     );
@@ -23,6 +24,23 @@ export default function PalpitesClient({ match, prediction, started, formattedDa
     );
     const [editing, setEditing] = useState(!prediction && !started);
     const [isPending, startTransition] = useTransition();
+    const [showModal, setShowModal] = useState(false);
+    const [loadingPredictions, setLoadingPredictions] = useState(false);
+    const [allPredictions, setAllPredictions] = useState<MatchPredictionEntry[] | null>(null);
+
+    async function handleShowPredictions() {
+        setShowModal(true);
+        if (allPredictions !== null) return;
+        setLoadingPredictions(true);
+        try {
+            const data = await getMatchPredictions(match.id);
+            setAllPredictions(data);
+        } catch {
+            toast.error("Não foi possível carregar os palpites.");
+            setShowModal(false);
+        }
+        setLoadingPredictions(false);
+    }
 
     function handleSave() {
         const h = parseInt(home);
@@ -76,6 +94,15 @@ export default function PalpitesClient({ match, prediction, started, formattedDa
                         </span>
                     )}
                     {pointsBadge}
+                    {started10min && (
+                        <button
+                            onClick={handleShowPredictions}
+                            className="flex items-center gap-1 text-xs bg-white/10 hover:bg-white/20 text-white/60 hover:text-white px-2 py-0.5 rounded-full transition-colors border border-white/10"
+                        >
+                            <Users size={11} />
+                            Ver palpites
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -198,6 +225,79 @@ export default function PalpitesClient({ match, prediction, started, formattedDa
                     <p className="text-xs text-white/30">
                         {match.stadium}{match.city ? `, ${match.city}` : ""}
                     </p>
+                </div>
+            )}
+
+            {/* Modal palpites do bolão */}
+            {showModal && (
+                <div
+                    className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center"
+                    onClick={() => setShowModal(false)}
+                >
+                    <div
+                        className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5 max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Handle */}
+                        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-sm font-bold text-white">Palpites do bolão</h3>
+                                <p className="text-xs text-white/40 mt-0.5">
+                                    {translateTeamName(match.home_team)} × {translateTeamName(match.away_team)}
+                                </p>
+                            </div>
+                            <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white p-1">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="overflow-y-auto flex-1">
+                            {loadingPredictions ? (
+                                <div className="flex items-center justify-center py-10">
+                                    <Loader2 size={24} className="text-copa-red animate-spin" />
+                                </div>
+                            ) : allPredictions && allPredictions.length === 0 ? (
+                                <p className="text-center text-white/30 text-sm py-10">Nenhum palpite registrado.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {(allPredictions ?? []).map((p, i) => {
+                                        const name = p.profiles?.name ?? "Participante";
+                                        const avatar = p.profiles?.avatar_url;
+                                        return (
+                                            <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                                                {/* Avatar */}
+                                                <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center">
+                                                    {avatar ? (
+                                                        <Image src={avatar} alt={name} width={32} height={32} className="object-cover" />
+                                                    ) : (
+                                                        <span className="text-xs font-bold text-white">{name.charAt(0).toUpperCase()}</span>
+                                                    )}
+                                                </div>
+                                                {/* Nome */}
+                                                <span className="flex-1 text-sm text-white truncate">{name}</span>
+                                                {/* Palpite */}
+                                                <span className="text-sm font-bold text-white bg-white/10 rounded-lg px-3 py-1">
+                                                    {p.home_score_pred} × {p.away_score_pred}
+                                                </span>
+                                                {/* Pontos */}
+                                                {p.points !== null && p.points !== undefined && (
+                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                                        p.points === 3 ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
+                                                        p.points === 1 ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
+                                                        "bg-red-500/20 text-red-400 border border-red-400/30"
+                                                    }`}>
+                                                        {p.points === 3 ? "+3" : p.points === 1 ? "+1" : "+0"}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

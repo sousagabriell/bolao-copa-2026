@@ -17,11 +17,18 @@ export default async function RankingPage() {
   const totalPaid = (ranking ?? []).length;
   const totalPrize = entryFee * totalPaid;
 
+  const prizes = {
+    first:  totalPrize * 0.60,
+    second: totalPrize * 0.25,
+    third:  totalPrize * 0.15,
+  };
+
   return (
     <RankingClient
       ranking={(ranking ?? []) as RankingEntry[]}
       totalPrize={totalPrize}
       entryFee={entryFee}
+      prizes={prizes}
     />
   );
 }

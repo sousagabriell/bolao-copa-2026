@@ -45,6 +45,7 @@ export default async function PalpitesPage() {
     match,
     prediction: predictionMap.get(match.id),
     started: new Date(match.starts_at) <= new Date(),
+    started10min: new Date(match.starts_at) <= new Date(Date.now() - 10 * 60 * 1000),
     formattedDate: formatInTimeZone(new Date(match.starts_at), TZ, "dd/MM • HH:mm", { locale: ptBR }),
     dayKey: formatInTimeZone(new Date(match.starts_at), TZ, "yyyy-MM-dd"),
     dayLabel: formatInTimeZone(new Date(match.starts_at), TZ, "EEE dd/MM", { locale: ptBR }),
