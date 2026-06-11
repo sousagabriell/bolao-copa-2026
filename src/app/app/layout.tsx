@@ -3,11 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Target, Trophy, User } from "lucide-react";
+import { Target, Trophy, User, Star } from "lucide-react";
 
 const tabs = [
   { href: "/app/palpites", label: "Palpites", Icon: Target },
   { href: "/app/ranking", label: "Ranking", Icon: Trophy },
+  { href: "/app/extras", label: "Extras", Icon: Star },
   { href: "/app/perfil", label: "Perfil", Icon: User },
 ];
 

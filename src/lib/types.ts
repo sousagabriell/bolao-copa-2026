@@ -72,6 +72,34 @@ export interface RankingEntry {
   exact_scores: number;
   correct_results: number;
   total_predictions: number;
+  bonus_points: number;
+}
+
+export interface BonusQuestion {
+  id: number;
+  question: string;
+  description: string | null;
+  type: "select" | "number";
+  options: string[] | null;
+  min_value: number | null;
+  max_value: number | null;
+  correct_answer: string | null;
+  points: number;
+  closes_at: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BonusAnswer {
+  id: number;
+  user_id: string;
+  question_id: number;
+  answer: string;
+  points: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Settings {

@@ -195,6 +195,12 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                 </p>
               </div>
               <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Perguntas extras</p>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  Além dos palpites, cada pergunta extra respondida corretamente concede os pontos indicados direto ao seu total no ranking. Veja a aba <span className="text-copa-gold font-semibold">Extras</span> para responder.
+                </p>
+              </div>
+              <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3">
                 <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Distribuição do prêmio</p>
                 <div className="flex gap-4 mt-1">
                   <span className="text-xs text-copa-gold font-semibold">🥇 1° lugar — 60%</span>
