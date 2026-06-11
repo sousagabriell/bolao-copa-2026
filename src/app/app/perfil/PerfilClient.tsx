@@ -50,7 +50,20 @@ export default function PerfilClient({ profile }: Props) {
     }
 
     const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    setAvatarUrl(data.publicUrl);
+    const publicUrl = data.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", profile.id);
+
+    if (updateError) {
+      toast.error("Erro ao salvar foto no perfil.");
+      setUploading(false);
+      return;
+    }
+
+    setAvatarUrl(publicUrl);
     setUploading(false);
     toast.success("Foto atualizada!");
   }
