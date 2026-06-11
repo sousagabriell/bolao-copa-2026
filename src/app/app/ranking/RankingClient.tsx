@@ -148,25 +148,25 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
 
       {/* Modal regras de pontuação */}
       {showRules && (
-        <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center"
-          onClick={() => setShowRules(false)}
-        >
+        <div className="fixed inset-0 z-[60]" onClick={() => setShowRules(false)}>
+          <div className="absolute inset-0 bg-black/70" />
           <div
-            className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5 max-h-[80vh] flex flex-col"
+            className="absolute bottom-0 left-0 right-0 bg-copa-dark-800 rounded-t-2xl border-t border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4 shrink-0" />
-
-            <div className="flex items-center justify-between mb-5 shrink-0">
-              <h3 className="text-sm font-bold text-white">Regras de pontuação</h3>
-              <button onClick={() => setShowRules(false)} className="text-white/40 hover:text-white p-1">
-                <X size={18} />
-              </button>
+            {/* Header */}
+            <div className="px-5 pt-5 pb-4 border-b border-white/5">
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">Regras de pontuação</h3>
+                <button onClick={() => setShowRules(false)} className="text-white/40 hover:text-white p-1">
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
-            <div className="overflow-y-auto flex-1 pb-4">
-            <div className="space-y-3 mb-5">
+            {/* Conteúdo */}
+            <div style={{ maxHeight: '60vh', overflowY: 'scroll' }} className="px-5 py-4 pb-8 space-y-3">
               <div className="flex items-center gap-3 bg-copa-gold/10 border border-copa-gold/30 rounded-xl px-4 py-3">
                 <span className="text-copa-gold font-black text-lg w-8 text-center">+3</span>
                 <div>
@@ -188,24 +188,21 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                   <p className="text-xs text-white/40">Resultado não corresponde ao palpite</p>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-              <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Critério de desempate</p>
-              <p className="text-xs text-white/50 leading-relaxed">
-                Em caso de empate em pontos, o participante com mais <span className="text-white/80 font-semibold">placares exatos</span> fica à frente. Se ainda empatado, quem tiver mais <span className="text-white/80 font-semibold">resultados corretos</span> leva a vantagem.
-              </p>
-            </div>
-
-            <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3 mt-3">
-              <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Distribuição do prêmio</p>
-              <div className="flex gap-4 mt-1">
-                <span className="text-xs text-copa-gold font-semibold">🥇 1° lugar — 60%</span>
-                <span className="text-xs text-gray-300 font-semibold">🥈 2° lugar — 25%</span>
-                <span className="text-xs text-amber-600 font-semibold">🥉 3° lugar — 15%</span>
+              <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Critério de desempate</p>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  Em caso de empate em pontos, o participante com mais <span className="text-white/80 font-semibold">placares exatos</span> fica à frente. Se ainda empatado, quem tiver mais <span className="text-white/80 font-semibold">resultados corretos</span> leva a vantagem.
+                </p>
+              </div>
+              <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Distribuição do prêmio</p>
+                <div className="flex gap-4 mt-1">
+                  <span className="text-xs text-copa-gold font-semibold">🥇 1° lugar — 60%</span>
+                  <span className="text-xs text-gray-300 font-semibold">🥈 2° lugar — 25%</span>
+                  <span className="text-xs text-amber-600 font-semibold">🥉 3° lugar — 15%</span>
+                </div>
               </div>
             </div>
-            </div>{/* fim overflow-y-auto */}
           </div>
         </div>
       )}

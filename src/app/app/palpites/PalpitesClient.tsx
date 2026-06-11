@@ -230,30 +230,29 @@ export default function PalpitesClient({ match, prediction, started, started10mi
 
             {/* Modal palpites do bolão */}
             {showModal && (
-                <div
-                    className="fixed inset-0 bg-black/70 z-50 flex items-end justify-center"
-                    onClick={() => setShowModal(false)}
-                >
+                <div className="fixed inset-0 z-[60]" onClick={() => setShowModal(false)}>
+                    <div className="absolute inset-0 bg-black/70" />
                     <div
-                        className="bg-copa-dark-800 w-full max-w-lg rounded-t-2xl border-t border-white/10 p-5 max-h-[80vh] flex flex-col"
+                        className="absolute bottom-0 left-0 right-0 bg-copa-dark-800 rounded-t-2xl border-t border-white/10"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        {/* Handle */}
-                        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
-
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h3 className="text-sm font-bold text-white">Palpites do bolão</h3>
-                                <p className="text-xs text-white/40 mt-0.5">
-                                    {translateTeamName(match.home_team)} × {translateTeamName(match.away_team)}
-                                </p>
+                        {/* Header */}
+                        <div className="px-5 pt-5 pb-4 border-b border-white/5">
+                            <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-bold text-white">Palpites do bolão</h3>
+                                    <p className="text-xs text-white/40 mt-0.5">
+                                        {translateTeamName(match.home_team)} × {translateTeamName(match.away_team)}
+                                    </p>
+                                </div>
+                                <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white p-1">
+                                    <X size={18} />
+                                </button>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="text-white/40 hover:text-white p-1">
-                                <X size={18} />
-                            </button>
                         </div>
 
-                        <div className="overflow-y-auto flex-1">
+                        <div style={{ maxHeight: '60vh', overflowY: 'scroll' }} className="px-5 py-4 pb-8">
                             {loadingPredictions ? (
                                 <div className="flex items-center justify-center py-10">
                                     <Loader2 size={24} className="text-copa-red animate-spin" />
