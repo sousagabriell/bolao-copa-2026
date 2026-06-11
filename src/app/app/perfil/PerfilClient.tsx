@@ -1,7 +1,8 @@
 ﻿"use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Profile } from "@/lib/types";
@@ -15,58 +16,14 @@ interface Props {
 export default function PerfilClient({ profile }: Props) {
   const router = useRouter();
   const supabase = createClient();
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(profile.name);
-  const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url ?? "");
+  const [avatarUrl] = useState(profile.avatar_url ?? "");
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingAuth, setSavingAuth] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error("Imagem muito grande. Maximo 2MB.");
-      return;
-    }
-
-    setUploading(true);
-    const ext = file.name.split(".").pop();
-    const path = `avatars/${profile.id}.${ext}`;
-
-    const { error } = await supabase.storage
-      .from("avatars")
-      .upload(path, file, { upsert: true });
-
-    if (error) {
-      toast.error("Erro ao enviar imagem.");
-      setUploading(false);
-      return;
-    }
-
-    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-    const publicUrl = data.publicUrl;
-
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ avatar_url: publicUrl })
-      .eq("id", profile.id);
-
-    if (updateError) {
-      toast.error("Erro ao salvar foto no perfil.");
-      setUploading(false);
-      return;
-    }
-
-    setAvatarUrl(publicUrl);
-    setUploading(false);
-    toast.success("Foto atualizada!");
-  }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault();
@@ -145,7 +102,7 @@ export default function PerfilClient({ profile }: Props) {
           <h2 className="text-xs font-bold text-white/40 uppercase tracking-widest mb-5">Perfil</h2>
 
           <div className="flex flex-col items-center mb-5">
-            <button onClick={() => fileRef.current?.click()} className="relative group">
+            <Link href="/app/perfil/foto" className="relative group">
               <div className="w-20 h-20 rounded-full bg-copa-dark-700 overflow-hidden border-2 border-white/20 group-hover:border-copa-red/60 transition-colors">
                 {avatarUrl ? (
                   <Image src={avatarUrl} alt="Avatar" width={80} height={80} className="object-cover" />
@@ -156,14 +113,9 @@ export default function PerfilClient({ profile }: Props) {
                 )}
               </div>
               <div className="absolute bottom-0 right-0 bg-copa-red rounded-full p-1.5">
-                {uploading ? (
-                  <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Camera size={11} className="text-white" />
-                )}
+                <Camera size={11} className="text-white" />
               </div>
-            </button>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+            </Link>
             <p className="text-xs text-white/30 mt-2">Toque para trocar a foto</p>
           </div>
 
