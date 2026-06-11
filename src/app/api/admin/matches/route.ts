@@ -22,8 +22,7 @@ export async function GET() {
   const { data } = await service
     .from("matches")
     .select("id,external_id,home_team,away_team,home_team_crest,away_team_crest,starts_at,status,home_score,away_score,home_score_regular,away_score_regular,stage,group_name,stadium,city,matchday")
-    .order("starts_at", { ascending: false })
-    .limit(60);
+    .order("starts_at", { ascending: true });
 
   return NextResponse.json(data ?? []);
 }

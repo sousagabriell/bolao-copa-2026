@@ -583,7 +583,6 @@ export default function AdminPage() {
                 if (matchFilter === "finished") return m.status === "FINISHED";
                 return true;
               })
-              .slice(0, 20)
               .map((m) => {
                 const r = matchResults[m.id] ?? { home: "", away: "" };
                 const finished = m.status === "FINISHED";
