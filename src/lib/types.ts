@@ -108,6 +108,22 @@ export interface Settings {
   updated_at: string;
 }
 
+export interface ChatMessage {
+  id: number;
+  user_id: string;
+  message: string;
+  created_at: string;
+}
+
+export const REACTION_EMOJIS = ["🔥", "😂", "😱", "👏", "😭", "😡"] as const;
+export type ReactionEmoji = (typeof REACTION_EMOJIS)[number];
+
+export interface ReactionSummary {
+  emoji: ReactionEmoji;
+  count: number;
+  reactedByMe: boolean;
+}
+
 const TEAM_NAMES: Record<string, string> = {
   // América do Sul
   Brazil: "Brasil",

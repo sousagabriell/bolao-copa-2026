@@ -6,6 +6,9 @@ import RankingClient from "./RankingClient";
 export default async function RankingPage() {
   const supabase = await createClient();
 
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
   const [{ data: ranking }, { data: settings }] = await Promise.all([
     supabase.from("ranking").select("*"),
     supabase.from("settings").select("key, value").in("key", ["entry_fee", "bolao_name"]),
@@ -29,6 +32,7 @@ export default async function RankingPage() {
       totalPrize={totalPrize}
       entryFee={entryFee}
       prizes={prizes}
+      currentUserId={user.id}
     />
   );
 }

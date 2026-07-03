@@ -35,7 +35,7 @@ export default function RootLayout({
         <link rel="icon" href="/icon.png" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>
-      <body className={`${poppins.className} bg-gray-50 min-h-screen`}>
+      <body className={`${poppins.className} bg-copa-dark min-h-dvh`}>
         <ServiceWorkerRegistrar />
         <Toaster richColors position="top-center" />
         {children}

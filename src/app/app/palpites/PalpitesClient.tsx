@@ -1,9 +1,12 @@
 ﻿"use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Match, Prediction, translateTeamName } from "@/lib/types";
+import { Match, Prediction, ReactionEmoji, translateTeamName } from "@/lib/types";
 import { submitPrediction, getMatchPredictions, MatchPredictionEntry } from "./actions";
+import { sendReactionMessage } from "../chat/actions";
+import ReactionPicker from "@/components/ReactionPicker";
 import { toast } from "sonner";
 import { Pencil, Check, X, MapPin, Users, Loader2 } from "lucide-react";
 
@@ -27,6 +30,8 @@ export default function PalpitesClient({ match, prediction, started, started10mi
     const [showModal, setShowModal] = useState(false);
     const [loadingPredictions, setLoadingPredictions] = useState(false);
     const [allPredictions, setAllPredictions] = useState<MatchPredictionEntry[] | null>(null);
+    const [isReactPending, startReactTransition] = useTransition();
+    const router = useRouter();
 
     async function handleShowPredictions() {
         setShowModal(true);
@@ -40,6 +45,17 @@ export default function PalpitesClient({ match, prediction, started, started10mi
             setShowModal(false);
         }
         setLoadingPredictions(false);
+    }
+
+    function handleReact(predictionId: number, emoji: ReactionEmoji) {
+        startReactTransition(async () => {
+            try {
+                await sendReactionMessage({ emoji, predictionId });
+                router.push("/app/chat");
+            } catch (e: unknown) {
+                toast.error(e instanceof Error ? e.message : "Não foi possível reagir.");
+            }
+        });
     }
 
     function handleSave() {
@@ -261,11 +277,12 @@ export default function PalpitesClient({ match, prediction, started, started10mi
                                 <p className="text-center text-white/30 text-sm py-10">Nenhum palpite registrado.</p>
                             ) : (
                                 <div className="space-y-2">
-                                    {(allPredictions ?? []).map((p, i) => {
+                                    {(allPredictions ?? []).map((p) => {
                                         const name = p.profiles?.name ?? "Participante";
                                         const avatar = p.profiles?.avatar_url;
+                                        const isMine = p.id === prediction?.id;
                                         return (
-                                            <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                                            <div key={p.id} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0 flex-wrap">
                                                 {/* Avatar */}
                                                 <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center">
                                                     {avatar ? (
@@ -275,7 +292,7 @@ export default function PalpitesClient({ match, prediction, started, started10mi
                                                     )}
                                                 </div>
                                                 {/* Nome */}
-                                                <span className="flex-1 text-sm text-white truncate">{name}</span>
+                                                <span className="flex-1 min-w-0 text-sm text-white truncate">{name}</span>
                                                 {/* Palpite */}
                                                 <span className="text-sm font-bold text-white bg-white/10 rounded-lg px-3 py-1">
                                                     {p.home_score_pred} × {p.away_score_pred}
@@ -289,6 +306,13 @@ export default function PalpitesClient({ match, prediction, started, started10mi
                                                     }`}>
                                                         +{p.points}
                                                     </span>
+                                                )}
+                                                {/* Reação */}
+                                                {!isMine && (
+                                                    <ReactionPicker
+                                                        disabled={isReactPending}
+                                                        onSelect={(emoji) => handleReact(p.id, emoji)}
+                                                    />
                                                 )}
                                             </div>
                                         );

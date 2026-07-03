@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export interface MatchPredictionEntry {
+  id: number;
   home_score_pred: number;
   away_score_pred: number;
   points: number | null;
@@ -32,7 +33,7 @@ export async function getMatchPredictions(matchId: number): Promise<MatchPredict
   const service = createServiceClient();
   const { data } = await service
     .from("predictions")
-    .select("home_score_pred, away_score_pred, points, profiles(name, avatar_url)")
+    .select("id, home_score_pred, away_score_pred, points, profiles(name, avatar_url)")
     .eq("match_id", matchId)
     .order("points", { ascending: false, nullsFirst: false });
 

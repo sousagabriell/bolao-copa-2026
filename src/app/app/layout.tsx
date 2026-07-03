@@ -3,12 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Target, Trophy, User, Star } from "lucide-react";
+import { Target, Trophy, User, Star, MessageCircle } from "lucide-react";
 import NewRuleAnnouncement from "./NewRuleAnnouncement";
 
 const tabs = [
   { href: "/app/palpites", label: "Palpites", Icon: Target },
   { href: "/app/ranking", label: "Ranking", Icon: Trophy },
+  { href: "/app/chat", label: "Chat", Icon: MessageCircle },
   { href: "/app/extras", label: "Extras", Icon: Star },
   { href: "/app/perfil", label: "Perfil", Icon: User },
 ];
@@ -19,7 +20,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const hideChrome = pathname === "/app/perfil/foto";
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
+    <div className="flex flex-col h-dvh bg-copa-dark">
       {/* Header */}
       {!hideChrome && (
         <header className="bg-copa-red text-white px-4 py-3 flex items-center justify-between shadow-lg">

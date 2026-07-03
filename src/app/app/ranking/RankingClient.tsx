@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { RankingEntry } from "@/lib/types";
+import { toast } from "sonner";
+import { RankingEntry, ReactionEmoji } from "@/lib/types";
 import { Trophy, Medal, Info, X } from "lucide-react";
+import { sendReactionMessage } from "../chat/actions";
+import ReactionPicker from "@/components/ReactionPicker";
 
 interface Props {
   ranking: RankingEntry[];
   totalPrize: number;
   entryFee: number;
   prizes: { first: number; second: number; third: number };
+  currentUserId: string;
 }
 
 function formatBRL(value: number) {
@@ -22,8 +27,21 @@ const PRIZE_POSITIONS = [
   { label: "3°", percent: "15%", key: "third" as const, color: "text-amber-600", bg: "bg-amber-600/10", border: "border-amber-600/30" },
 ];
 
-export default function RankingClient({ ranking, totalPrize, entryFee, prizes }: Props) {
+export default function RankingClient({ ranking, totalPrize, entryFee, prizes, currentUserId }: Props) {
   const [showRules, setShowRules] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function handleReact(rankingUserId: string, emoji: ReactionEmoji) {
+    startTransition(async () => {
+      try {
+        await sendReactionMessage({ emoji, rankingUserId });
+        router.push("/app/chat");
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : "Não foi possível reagir.");
+      }
+    });
+  }
 
   return (
     <div className="min-h-screen bg-copa-dark">
@@ -129,12 +147,6 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                 <p className={`font-semibold text-sm truncate ${i === 0 ? "text-copa-gold" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-white"}`}>
                   {entry.name}
                 </p>
-                {/* Prêmio top 3 */}
-                {i < 3 && totalPrize > 0 && (
-                  <span className="text-xs text-white/30 shrink-0">
-                    R$ {formatBRL(prizes[i === 0 ? "first" : i === 1 ? "second" : "third"])}
-                  </span>
-                )}
               </div>
               <div className="flex gap-3 mt-0.5">
                 <span className="text-xs text-copa-gold/80">{entry.total_points ?? 0} pts</span>
@@ -142,6 +154,14 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                 <span className="text-xs text-white/20">{entry.correct_results ?? 0} resultados</span>
               </div>
             </div>
+
+            {/* Reação */}
+            {entry.id !== currentUserId && (
+              <ReactionPicker
+                disabled={isPending}
+                onSelect={(emoji) => handleReact(entry.id, emoji)}
+              />
+            )}
           </div>
         ))}
       </div>
