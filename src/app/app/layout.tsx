@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Target, Trophy, User, Star } from "lucide-react";
+import NewRuleAnnouncement from "./NewRuleAnnouncement";
 
 const tabs = [
   { href: "/app/palpites", label: "Palpites", Icon: Target },
@@ -61,6 +62,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
       )}
+
+      {!hideChrome && <NewRuleAnnouncement />}
     </div>
   );
 }

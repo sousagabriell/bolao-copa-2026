@@ -68,11 +68,11 @@ export default function PalpitesClient({ match, prediction, started, started10mi
     const hasPrediction = prediction?.home_score_pred !== undefined;
 
     const pointsBadge = prediction?.points !== null && prediction?.points !== undefined ? (
-        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${prediction.points === 3 ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
-                prediction.points === 1 ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
+        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${[3, 6].includes(prediction.points) ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
+                [1, 2].includes(prediction.points) ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
                     "bg-red-500/20 text-red-400 border border-red-400/30"
             }`}>
-            {prediction.points === 3 ? "+3 pts" : prediction.points === 1 ? "+1 pt" : "+0 pts"}
+            +{prediction.points} {prediction.points === 1 ? "pt" : "pts"}
         </span>
     ) : null;
 
@@ -283,11 +283,11 @@ export default function PalpitesClient({ match, prediction, started, started10mi
                                                 {/* Pontos */}
                                                 {p.points !== null && p.points !== undefined && (
                                                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                                                        p.points === 3 ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
-                                                        p.points === 1 ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
+                                                        [3, 6].includes(p.points) ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30" :
+                                                        [1, 2].includes(p.points) ? "bg-blue-500/20 text-blue-400 border border-blue-400/30" :
                                                         "bg-red-500/20 text-red-400 border border-red-400/30"
                                                     }`}>
-                                                        {p.points === 3 ? "+3" : p.points === 1 ? "+1" : "+0"}
+                                                        +{p.points}
                                                     </span>
                                                 )}
                                             </div>

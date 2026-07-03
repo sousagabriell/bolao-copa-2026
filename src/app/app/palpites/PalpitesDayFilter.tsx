@@ -1,8 +1,12 @@
 ﻿"use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { formatInTimeZone } from "date-fns-tz";
 import PalpitesClient from "./PalpitesClient";
 import { Match, Prediction, formatGroupName } from "@/lib/types";
+
+const TZ = "America/Sao_Paulo";
 
 interface MatchWithData {
   match: Match;
@@ -37,12 +41,39 @@ export default function PalpitesDayFilter({ matchesWithData }: Props) {
 
   // Default: first day that has a match today or in the future, else first day
   const defaultDay = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = formatInTimeZone(new Date(), TZ, "yyyy-MM-dd");
     const futureDay = days.find((d) => d.key >= today);
     return futureDay?.key ?? days[0]?.key ?? "";
   }, [days]);
 
   const [selectedDay, setSelectedDay] = useState(defaultDay);
+
+  const dayIndex = days.findIndex((d) => d.key === selectedDay);
+
+  const goToDay = useCallback(
+    (offset: number) => {
+      setSelectedDay((current) => {
+        const idx = days.findIndex((d) => d.key === current);
+        const nextIdx = idx + offset;
+        if (nextIdx < 0 || nextIdx >= days.length) return current;
+        return days[nextIdx].key;
+      });
+    },
+    [days]
+  );
+
+  const dayButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const isFirstScroll = useRef(true);
+
+  useEffect(() => {
+    const button = dayButtonRefs.current.get(selectedDay);
+    button?.scrollIntoView({
+      behavior: isFirstScroll.current ? "auto" : "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+    isFirstScroll.current = false;
+  }, [selectedDay]);
 
   const filtered = useMemo(
     () => matchesWithData.filter((m) => m.dayKey === selectedDay),
@@ -66,20 +97,44 @@ export default function PalpitesDayFilter({ matchesWithData }: Props) {
     <div>
       {/* Sticky day filter pills */}
       <div className="sticky top-0 z-10 bg-copa-dark border-b border-white/10 px-4 py-3">
-        <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
-          {days.map((d) => (
-            <button
-              key={d.key}
-              onClick={() => setSelectedDay(d.key)}
-              className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
-                selectedDay === d.key
-                  ? "bg-copa-red text-white"
-                  : "bg-white/20 text-white/80 hover:bg-white/30"
-              }`}
-            >
-              {d.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => goToDay(-1)}
+            disabled={dayIndex <= 0}
+            aria-label="Dia anterior"
+            className="shrink-0 p-1.5 rounded-full text-white/70 hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <div className="flex gap-2 overflow-x-auto scrollbar-none pb-0.5">
+            {days.map((d) => (
+              <button
+                key={d.key}
+                ref={(el) => {
+                  if (el) dayButtonRefs.current.set(d.key, el);
+                  else dayButtonRefs.current.delete(d.key);
+                }}
+                onClick={() => setSelectedDay(d.key)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors capitalize ${
+                  selectedDay === d.key
+                    ? "bg-copa-red text-white"
+                    : "bg-white/20 text-white/80 hover:bg-white/30"
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => goToDay(1)}
+            disabled={dayIndex === -1 || dayIndex >= days.length - 1}
+            aria-label="Próximo dia"
+            className="shrink-0 p-1.5 rounded-full text-white/70 hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent transition-colors"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
       </div>
 

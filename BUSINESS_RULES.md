@@ -39,18 +39,19 @@
 
 ## 5. Pontuação
 
-| Resultado do palpite | Pontos |
-|---|---|
-| Placar exato correto (ex: acertou `2x1` e o jogo terminou `2x1`) | **3 pontos** |
-| Vencedor/empate correto, mas placar errado (ex: palpitou `2x1`, terminou `3x1`) | **1 ponto** |
-| Resultado errado (ex: palpitou vitória do time A, mas venceu o time B ou empatou) | **0 pontos** |
+| Resultado do palpite | Fase de grupos | A partir das oitavas de final |
+|---|---|---|
+| Placar exato correto (ex: acertou `2x1` e o jogo terminou `2x1`) | **3 pontos** | **6 pontos** |
+| Vencedor/empate correto, mas placar errado (ex: palpitou `2x1`, terminou `3x1`) | **1 ponto** | **2 pontos** |
+| Resultado errado (ex: palpitou vitória do time A, mas venceu o time B ou empatou) | **0 pontos** | **0 pontos** |
 
-- Os pontos são calculados automaticamente por um **trigger no banco de dados** Supabase, disparado quando um jogo tem seu status atualizado para `FINISHED` e o placar real é preenchido.
+- A partir das oitavas de final (`LAST_16`, `QUARTER_FINALS`, `SEMI_FINALS`, `THIRD_PLACE`, `FINAL`), a pontuação de cada palpite **dobra** em relação à fase de grupos.
+- Os pontos são calculados automaticamente por um **trigger no banco de dados** Supabase, disparado quando um jogo tem seu status atualizado para `FINISHED` e o placar real é preenchido. O multiplicador é determinado pelo campo `matches.stage`.
 - O cálculo percorre **todas as predictions** daquele jogo e atualiza o campo `points`.
 
 ### Critério de desempate no ranking:
-1. Maior número de **placares exatos** (3 pts)
-2. Maior número de **vencedores/empates certos** (1 pt)
+1. Maior número de **placares exatos** (3 ou 6 pts, conforme a fase)
+2. Maior número de **vencedores/empates certos** (1 ou 2 pts, conforme a fase)
 3. Ordem de cadastro (mais antigo ganha em último caso de empate)
 
 ## 6. Prêmio

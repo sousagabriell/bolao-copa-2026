@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
+import { createPortal } from "react-dom";
+import Image from "next/image";
 import { BonusQuestion, BonusAnswer } from "@/lib/types";
-import { submitBonusAnswer } from "./actions";
+import { submitBonusAnswer, getBonusQuestionAnswers, BonusAnswerEntry } from "./actions";
 import { toast } from "sonner";
-import { Star, Lock, Check, Info, X, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, Lock, Check, Info, X, ChevronDown, ChevronUp, Users, Loader2 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 
@@ -43,6 +45,9 @@ function QuestionCard({
   const [selected, setSelected] = useState(answer?.answer ?? "");
   const [isPending, startTransition] = useTransition();
   const [collapsed, setCollapsed] = useState(!!answer);
+  const [showAnswersModal, setShowAnswersModal] = useState(false);
+  const [loadingAnswers, setLoadingAnswers] = useState(false);
+  const [allAnswers, setAllAnswers] = useState<BonusAnswerEntry[] | null>(null);
   const expired = isExpired(question);
   const scored = answer?.points !== null && answer?.points !== undefined;
   const locked = expired || scored;
@@ -60,6 +65,31 @@ function QuestionCard({
     });
   }
 
+  async function handleShowAnswers() {
+    setShowAnswersModal(true);
+    if (allAnswers !== null) return;
+    setLoadingAnswers(true);
+    try {
+      const data = await getBonusQuestionAnswers(question.id);
+      setAllAnswers(data);
+    } catch {
+      toast.error("Não foi possível carregar as respostas.");
+      setShowAnswersModal(false);
+    }
+    setLoadingAnswers(false);
+  }
+
+  // Trava o scroll do fundo enquanto o modal estiver aberto, evitando que o
+  // conteúdo da página role e apareça misturado atrás do bottom-sheet.
+  useEffect(() => {
+    if (!showAnswersModal) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = original;
+    };
+  }, [showAnswersModal]);
+
   const borderClass = scored && (answer?.points ?? 0) > 0
     ? "border-copa-gold/40"
     : expired && !scored
@@ -73,8 +103,8 @@ function QuestionCard({
         onClick={() => setCollapsed((v) => !v)}
         className="w-full flex items-start justify-between gap-3 px-4 py-4 text-left"
       >
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-white leading-snug">{question.question}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white leading-snug break-words">{question.question}</p>
           {collapsed && answer && (
             <p className="text-xs text-white/40 mt-0.5 truncate">
               Sua resposta: <span className="text-white/70">{answer.answer}</span>
@@ -159,7 +189,85 @@ function QuestionCard({
               <span className="text-xs font-semibold text-white">{question.correct_answer}</span>
             </div>
           )}
+
+          {/* Ver respostas de todos, liberado após o encerramento */}
+          {expired && (
+            <button
+              onClick={handleShowAnswers}
+              className="flex items-center justify-center gap-1.5 w-full bg-white/10 hover:bg-white/20 text-white/70 hover:text-white font-semibold py-2.5 rounded-xl text-sm transition-colors border border-white/10"
+            >
+              <Users size={14} />
+              Ver respostas de todos
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Modal respostas de todos — em portal para não interagir com o
+          scroll/stacking dos cards da lista */}
+      {showAnswersModal && createPortal(
+        <div className="fixed inset-0 z-[60]" onClick={() => setShowAnswersModal(false)}>
+          <div className="absolute inset-0 bg-black/70" />
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-copa-dark-800 rounded-t-2xl border-t border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 border-b border-white/5">
+              <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-white">Respostas de todos</h3>
+                  <p className="text-xs text-white/40 mt-0.5 truncate">{question.question}</p>
+                </div>
+                <button onClick={() => setShowAnswersModal(false)} className="text-white/40 hover:text-white p-1 shrink-0">
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ maxHeight: "60vh", overflowY: "scroll" }} className="px-5 py-4 pb-8">
+              {loadingAnswers ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 size={24} className="text-copa-red animate-spin" />
+                </div>
+              ) : allAnswers && allAnswers.length === 0 ? (
+                <p className="text-center text-white/30 text-sm py-10">Nenhuma resposta registrada.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(allAnswers ?? []).map((a, i) => {
+                    const name = a.profiles?.name ?? "Participante";
+                    const avatar = a.profiles?.avatar_url;
+                    return (
+                      <div key={i} className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0">
+                        <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center">
+                          {avatar ? (
+                            <Image src={avatar} alt={name} width={32} height={32} className="object-cover" />
+                          ) : (
+                            <span className="text-xs font-bold text-white">{name.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <span className="flex-1 text-sm text-white truncate">{name}</span>
+                        <span className="text-sm font-bold text-white bg-white/10 rounded-lg px-3 py-1 truncate max-w-[40%]">
+                          {a.answer}
+                        </span>
+                        {a.points !== null && a.points !== undefined && (
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            a.points > 0
+                              ? "bg-copa-gold/20 text-copa-gold border border-copa-gold/30"
+                              : "bg-red-500/20 text-red-400 border border-red-400/30"
+                          }`}>
+                            {a.points > 0 ? `+${a.points}` : "+0"}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

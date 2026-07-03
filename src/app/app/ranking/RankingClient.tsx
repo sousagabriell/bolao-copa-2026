@@ -188,6 +188,12 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes }:
                   <p className="text-xs text-white/40">Resultado não corresponde ao palpite</p>
                 </div>
               </div>
+              <div className="bg-copa-gold/5 border border-copa-gold/20 rounded-xl px-4 py-3">
+                <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Pontuação em dobro</p>
+                <p className="text-xs text-white/50 leading-relaxed">
+                  A partir das <span className="text-white/80 font-semibold">oitavas de final</span>, os pontos valem o dobro: <span className="text-copa-gold font-semibold">+6</span> no placar exato e <span className="text-blue-400 font-semibold">+2</span> no resultado correto.
+                </p>
+              </div>
               <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
                 <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-1">Critério de desempate</p>
                 <p className="text-xs text-white/50 leading-relaxed">
