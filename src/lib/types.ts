@@ -158,6 +158,26 @@ export interface ReactionRankingData {
 
 export type ReactionMessageData = ReactionPredictionData | ReactionRankingData;
 
+export interface MatchReminderData {
+  matchId: number;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamCrest: string | null;
+  awayTeamCrest: string | null;
+  startsAt: string;
+}
+
+export interface NotificationEntry {
+  id: number;
+  type: "reaction" | "match_reminder";
+  actor_name: string | null;
+  actor_avatar_url: string | null;
+  reaction_data: ReactionMessageData | null;
+  match_reminder: MatchReminderData | null;
+  read_at: string | null;
+  created_at: string;
+}
+
 const TEAM_NAMES: Record<string, string> = {
   // América do Sul
   Brazil: "Brasil",

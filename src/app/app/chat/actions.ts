@@ -192,11 +192,23 @@ export async function sendReactionMessage(params: {
     };
   }
 
-  const { error } = await supabase
+  const { data: inserted, error } = await supabase
     .from("chat_messages")
-    .insert({ user_id: user.id, message: text, type: "reaction", reaction_data: reactionData });
+    .insert({ user_id: user.id, message: text, type: "reaction", reaction_data: reactionData })
+    .select("id")
+    .single();
 
-  if (error) throw new Error("Não foi possível enviar a reação");
+  if (error || !inserted) throw new Error("Não foi possível enviar a reação");
+
+  const targetUserId = reactionData.targetUserId;
+  if (targetUserId && targetUserId !== user.id) {
+    const { error: notifError } = await service.from("notifications").insert({
+      user_id: targetUserId,
+      actor_id: user.id,
+      message_id: inserted.id,
+    });
+    if (notifError) console.error("Falha ao criar notificação:", notifError);
+  }
 }
 
 export type MessageReactionsMap = Record<number, ReactionSummary[]>;

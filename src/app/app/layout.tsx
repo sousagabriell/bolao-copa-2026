@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Target, Trophy, User, Star, MessageCircle } from "lucide-react";
 import NewRuleAnnouncement from "./NewRuleAnnouncement";
+import NotificationBell from "@/components/NotificationBell";
 
 const tabs = [
   { href: "/app/palpites", label: "Palpites", Icon: Target },
@@ -35,6 +36,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             />
             <span className="font-bold text-sm tracking-wide">Bolão Copa 2026</span>
           </div>
+          <NotificationBell />
         </header>
       )}
 
