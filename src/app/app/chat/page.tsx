@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
-import { getInitialMessages, getReactionsForMessages } from "./actions";
+import { getInitialMessages, getMentionableUsers, getReactionsForMessages } from "./actions";
 import ChatClient from "./ChatClient";
 
 export default async function ChatPage() {
@@ -14,7 +14,7 @@ export default async function ChatPage() {
     .eq("id", user.id)
     .single();
 
-  const messages = await getInitialMessages();
+  const [messages, mentionableUsers] = await Promise.all([getInitialMessages(), getMentionableUsers()]);
   const reactions = await getReactionsForMessages(messages.map((m) => m.id));
 
   return (
@@ -23,6 +23,7 @@ export default async function ChatPage() {
       initialReactions={reactions}
       currentUserId={user.id}
       isAdmin={profile?.is_admin ?? false}
+      mentionableUsers={mentionableUsers}
     />
   );
 }

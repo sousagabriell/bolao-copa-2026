@@ -5,8 +5,9 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { MessageCircle, Send, Trash2 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
-import { ReactionEmoji } from "@/lib/types";
+import { MentionableUser, PendingMention, ReactionEmoji } from "@/lib/types";
 import ReactionPicker from "@/components/ReactionPicker";
+import MentionAutocomplete from "@/components/MentionAutocomplete";
 import {
   ChatMessageEntry,
   MessageReactionsMap,
@@ -28,16 +29,127 @@ interface Props {
   initialReactions: MessageReactionsMap;
   currentUserId: string;
   isAdmin: boolean;
+  mentionableUsers: MentionableUser[];
 }
 
-export default function ChatClient({ initialMessages, initialReactions, currentUserId, isAdmin }: Props) {
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function renderWithMentions(text: string, names: string[]) {
+  if (names.length === 0) return text;
+  const pattern = names.map((n) => `@${escapeRegExp(n)}`).join("|");
+  const regex = new RegExp(`(${pattern})`, "gu");
+  return text.split(regex).map((part, i) => {
+    const isMention = names.some((n) => part === `@${n}`);
+    return isMention ? (
+      <span key={i} className="text-copa-gold font-semibold">{part}</span>
+    ) : (
+      part
+    );
+  });
+}
+
+export default function ChatClient({ initialMessages, initialReactions, currentUserId, isAdmin, mentionableUsers }: Props) {
   const [messages, setMessages] = useState<ChatMessageEntry[]>(initialMessages);
   const [reactionsMap, setReactionsMap] = useState<MessageReactionsMap>(initialReactions);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const lastIdRef = useRef<number>(initialMessages[initialMessages.length - 1]?.id ?? 0);
   const messageIdsRef = useRef<number[]>(initialMessages.map((m) => m.id));
+
+  const [pendingMentions, setPendingMentions] = useState<PendingMention[]>([]);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionAnchor, setMentionAnchor] = useState<DOMRect | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const filteredMentionUsers =
+    mentionQuery === null
+      ? []
+      : mentionableUsers.filter((u) => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6);
+
+  function closeMentionDropdown() {
+    setMentionQuery(null);
+    setMentionAnchor(null);
+  }
+
+  function handleTextChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    setText(value);
+
+    const cursor = e.target.selectionStart ?? value.length;
+    const match = value.slice(0, cursor).match(/(?:^|\s)@([^\s@]*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+      setHighlightedIndex(0);
+      setMentionAnchor(inputRef.current?.getBoundingClientRect() ?? null);
+    } else {
+      closeMentionDropdown();
+    }
+  }
+
+  function handleMentionSelect(user: MentionableUser) {
+    const cursor = inputRef.current?.selectionStart ?? text.length;
+    const atIndex = text.slice(0, cursor).lastIndexOf("@");
+    if (atIndex === -1) {
+      closeMentionDropdown();
+      return;
+    }
+
+    const before = text.slice(0, atIndex);
+    const after = text.slice(cursor);
+    const inserted = `@${user.name} `;
+    setText(before + inserted + after);
+    setPendingMentions((prev) => (prev.some((m) => m.userId === user.id) ? prev : [...prev, { userId: user.id, name: user.name }]));
+    closeMentionDropdown();
+
+    requestAnimationFrame(() => {
+      const pos = before.length + inserted.length;
+      inputRef.current?.setSelectionRange(pos, pos);
+      inputRef.current?.focus();
+    });
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (mentionQuery !== null && filteredMentionUsers.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHighlightedIndex((i) => (i + 1) % filteredMentionUsers.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHighlightedIndex((i) => (i - 1 + filteredMentionUsers.length) % filteredMentionUsers.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleMentionSelect(filteredMentionUsers[highlightedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeMentionDropdown();
+        return;
+      }
+    }
+
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
+  function resolveMentionsForSend(finalText: string, pending: PendingMention[]): string[] {
+    const confirmed = new Set<string>();
+    for (const m of pending) {
+      const re = new RegExp(`(?:^|\\s)@${escapeRegExp(m.name)}(?=\\s|$|[.,!?;:])`, "u");
+      if (re.test(finalText)) confirmed.add(m.userId);
+    }
+    return [...confirmed];
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
@@ -80,11 +192,19 @@ export default function ChatClient({ initialMessages, initialReactions, currentU
     if (!trimmed || sending) return;
     setSending(true);
     try {
-      const created = await sendMessage(trimmed);
-      lastIdRef.current = Math.max(lastIdRef.current, created.id);
-      messageIdsRef.current = [...messageIdsRef.current, created.id];
-      setMessages((prev) => [...prev, created]);
+      const mentionedUserIds = resolveMentionsForSend(trimmed, pendingMentions);
+      const created = await sendMessage(trimmed, mentionedUserIds);
+      const enriched: ChatMessageEntry = {
+        ...created,
+        mentioned_names: mentionedUserIds
+          .map((id) => mentionableUsers.find((u) => u.id === id)?.name)
+          .filter((n): n is string => !!n),
+      };
+      lastIdRef.current = Math.max(lastIdRef.current, enriched.id);
+      messageIdsRef.current = [...messageIdsRef.current, enriched.id];
+      setMessages((prev) => [...prev, enriched]);
       setText("");
+      setPendingMentions([]);
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Não foi possível enviar a mensagem.");
     }
@@ -197,7 +317,9 @@ export default function ChatClient({ initialMessages, initialReactions, currentU
                     {!isMine && (
                       <p className="text-[11px] font-bold text-copa-gold mb-0.5">{name}</p>
                     )}
-                    <p className="text-sm leading-snug break-words whitespace-pre-wrap">{msg.message}</p>
+                    <p className="text-sm leading-snug break-words whitespace-pre-wrap">
+                      {renderWithMentions(msg.message, msg.mentioned_names)}
+                    </p>
                     <p className={`text-[10px] mt-1 ${isMine ? "text-white/70" : "text-white/30"}`}>{time}</p>
                   </div>
 
@@ -229,15 +351,11 @@ export default function ChatClient({ initialMessages, initialReactions, currentU
       {/* Composer */}
       <div className="shrink-0 border-t border-white/10 bg-copa-dark-800 px-3 py-3 flex items-center gap-2">
         <input
+          ref={inputRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Escreva uma mensagem..."
+          onChange={handleTextChange}
+          onKeyDown={handleInputKeyDown}
+          placeholder="Escreva uma mensagem... (@ pra mencionar alguém)"
           maxLength={500}
           className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-full px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-copa-red"
         />
@@ -250,6 +368,16 @@ export default function ChatClient({ initialMessages, initialReactions, currentU
           <Send size={16} />
         </button>
       </div>
+
+      {mentionQuery !== null && mentionAnchor && (
+        <MentionAutocomplete
+          users={filteredMentionUsers}
+          anchorRect={mentionAnchor}
+          highlightedIndex={highlightedIndex}
+          onSelect={handleMentionSelect}
+          onClose={closeMentionDropdown}
+        />
+      )}
     </div>
   );
 }

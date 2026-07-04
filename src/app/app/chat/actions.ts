@@ -3,6 +3,7 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import {
   MatchStatus,
+  MentionableUser,
   ReactionEmoji,
   REACTION_EMOJIS,
   ReactionMessageData,
@@ -12,7 +13,8 @@ import {
 
 const MAX_MESSAGE_LENGTH = 500;
 const INITIAL_LIMIT = 50;
-const MESSAGE_SELECT = "id, user_id, message, type, created_at, reaction_data, profiles(name, avatar_url)";
+const MESSAGE_SELECT =
+  "id, user_id, message, type, created_at, reaction_data, profiles(name, avatar_url), chat_message_mentions(mentioned_user_id, profiles!chat_message_mentions_mentioned_user_id_fkey(name))";
 
 export interface ChatMessageEntry {
   id: number;
@@ -22,6 +24,17 @@ export interface ChatMessageEntry {
   created_at: string;
   reaction_data: ReactionMessageData | null;
   profiles: { name: string; avatar_url: string | null } | null;
+  chat_message_mentions: Array<{ mentioned_user_id: string; profiles: { name: string } | null }>;
+  mentioned_names: string[];
+}
+
+function withMentionedNames<T extends { chat_message_mentions?: ChatMessageEntry["chat_message_mentions"] }>(
+  row: T
+): T & { mentioned_names: string[] } {
+  return {
+    ...row,
+    mentioned_names: (row.chat_message_mentions ?? []).map((m) => m.profiles?.name).filter((n): n is string => !!n),
+  };
 }
 
 export async function getInitialMessages(): Promise<ChatMessageEntry[]> {
@@ -35,7 +48,7 @@ export async function getInitialMessages(): Promise<ChatMessageEntry[]> {
     .order("id", { ascending: false })
     .limit(INITIAL_LIMIT);
 
-  return ((data ?? []) as unknown as ChatMessageEntry[]).reverse();
+  return ((data ?? []) as unknown as ChatMessageEntry[]).map(withMentionedNames).reverse();
 }
 
 export async function getMessagesSince(lastId: number): Promise<ChatMessageEntry[]> {
@@ -49,10 +62,27 @@ export async function getMessagesSince(lastId: number): Promise<ChatMessageEntry
     .gt("id", lastId)
     .order("id", { ascending: true });
 
-  return (data ?? []) as unknown as ChatMessageEntry[];
+  return ((data ?? []) as unknown as ChatMessageEntry[]).map(withMentionedNames);
 }
 
-export async function sendMessage(text: string): Promise<ChatMessageEntry> {
+export async function getMentionableUsers(): Promise<MentionableUser[]> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Não autenticado");
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, avatar_url")
+    .eq("payment_status", "paid")
+    .neq("id", user.id)
+    .order("name", { ascending: true });
+
+  if (error) console.error("Falha ao buscar usuários mencionáveis:", error);
+
+  return (data ?? []) as MentionableUser[];
+}
+
+export async function sendMessage(text: string, mentionedUserIds: string[] = []): Promise<ChatMessageEntry> {
   const trimmed = text.trim();
   if (!trimmed) throw new Error("Mensagem vazia");
   if (trimmed.length > MAX_MESSAGE_LENGTH) {
@@ -80,7 +110,33 @@ export async function sendMessage(text: string): Promise<ChatMessageEntry> {
 
   if (error || !data) throw new Error("Não foi possível enviar a mensagem");
 
-  return data as unknown as ChatMessageEntry;
+  const uniqueIds = [...new Set(mentionedUserIds)].filter((id) => id !== user.id);
+  if (uniqueIds.length > 0) {
+    const service = createServiceClient();
+
+    const { data: paidTargets } = await service
+      .from("profiles")
+      .select("id")
+      .in("id", uniqueIds)
+      .eq("payment_status", "paid");
+    const validIds = (paidTargets ?? []).map((p) => p.id);
+
+    if (validIds.length > 0) {
+      const messageId = (data as unknown as ChatMessageEntry).id;
+
+      const { error: mentionsError } = await service
+        .from("chat_message_mentions")
+        .insert(validIds.map((uid) => ({ message_id: messageId, mentioned_user_id: uid })));
+      if (mentionsError) console.error("Falha ao registrar menções:", mentionsError);
+
+      const { error: notifError } = await service
+        .from("notifications")
+        .insert(validIds.map((uid) => ({ user_id: uid, actor_id: user.id, message_id: messageId, type: "mention" })));
+      if (notifError) console.error("Falha ao criar notificações de menção:", notifError);
+    }
+  }
+
+  return withMentionedNames(data as unknown as ChatMessageEntry);
 }
 
 export async function sendReactionMessage(params: {

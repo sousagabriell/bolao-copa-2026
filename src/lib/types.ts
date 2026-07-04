@@ -169,13 +169,25 @@ export interface MatchReminderData {
 
 export interface NotificationEntry {
   id: number;
-  type: "reaction" | "match_reminder";
+  type: "reaction" | "match_reminder" | "mention";
   actor_name: string | null;
   actor_avatar_url: string | null;
   reaction_data: ReactionMessageData | null;
   match_reminder: MatchReminderData | null;
+  mention_message: string | null;
   read_at: string | null;
   created_at: string;
+}
+
+export interface MentionableUser {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+}
+
+export interface PendingMention {
+  userId: string;
+  name: string;
 }
 
 const TEAM_NAMES: Record<string, string> = {

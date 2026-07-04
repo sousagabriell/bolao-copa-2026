@@ -29,7 +29,7 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
   const { data, error } = await supabase
     .from("notifications")
     .select(
-      "id, type, read_at, created_at, profiles!notifications_actor_id_fkey(name, avatar_url), chat_messages(reaction_data), matches(id, home_team, away_team, home_team_crest, away_team_crest, starts_at)"
+      "id, type, read_at, created_at, profiles!notifications_actor_id_fkey(name, avatar_url), chat_messages(reaction_data, message), matches(id, home_team, away_team, home_team_crest, away_team_crest, starts_at)"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -39,11 +39,11 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
 
   return ((data ?? []) as unknown as Array<{
     id: number;
-    type: "reaction" | "match_reminder";
+    type: "reaction" | "match_reminder" | "mention";
     read_at: string | null;
     created_at: string;
     profiles: { name: string; avatar_url: string | null } | null;
-    chat_messages: { reaction_data: ReactionMessageData | null } | null;
+    chat_messages: { reaction_data: ReactionMessageData | null; message: string | null } | null;
     matches: {
       id: number;
       home_team: string;
@@ -60,6 +60,7 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
     actor_name: row.profiles?.name ?? null,
     actor_avatar_url: row.profiles?.avatar_url ?? null,
     reaction_data: row.chat_messages?.reaction_data ?? null,
+    mention_message: row.type === "mention" ? (row.chat_messages?.message ?? null) : null,
     match_reminder: row.matches
       ? ({
           matchId: row.matches.id,

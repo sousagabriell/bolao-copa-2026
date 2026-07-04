@@ -28,6 +28,14 @@ function describeReaction(entry: NotificationEntry): string {
   return `reagiu com ${data.emoji} à sua posição no ranking${position}`;
 }
 
+function describeMention(entry: NotificationEntry): string {
+  const message = entry.mention_message;
+  if (!message) return "mencionou você no chat";
+
+  const excerpt = message.length > 80 ? `${message.slice(0, 80)}…` : message;
+  return `mencionou você no chat: "${excerpt}"`;
+}
+
 function describeMatchReminder(entry: NotificationEntry): string {
   const data = entry.match_reminder;
   if (!data) return "Um jogo está prestes a começar e seu palpite ainda não foi salvo!";
@@ -82,7 +90,8 @@ export default function NotificationsClient({ initialNotifications }: Props) {
                     describeMatchReminder(entry)
                   ) : (
                     <>
-                      <span className="font-semibold text-white">{entry.actor_name}</span> {describeReaction(entry)}
+                      <span className="font-semibold text-white">{entry.actor_name}</span>{" "}
+                      {entry.type === "mention" ? describeMention(entry) : describeReaction(entry)}
                     </>
                   )}
                 </p>
