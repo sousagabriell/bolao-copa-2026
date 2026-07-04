@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SmilePlus } from "lucide-react";
-import { REACTION_EMOJIS, ReactionEmoji } from "@/lib/types";
+import { REACTION_EMOJIS, ReactionEmoji, ReactionSummary } from "@/lib/types";
 
 const POPOVER_WIDTH = 230;
 const GAP = 8;
@@ -11,6 +11,8 @@ const GAP = 8;
 interface Props {
   onSelect: (emoji: ReactionEmoji) => void | Promise<void>;
   disabled?: boolean;
+  /** Quando informado, exibe as pills de contagem já reagidas antes do gatilho. */
+  reactions?: ReactionSummary[];
 }
 
 interface PopoverPos {
@@ -19,7 +21,7 @@ interface PopoverPos {
   left: number;
 }
 
-export default function ReactionPicker({ onSelect, disabled }: Props) {
+export default function ReactionPicker({ onSelect, disabled, reactions }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pos, setPos] = useState<PopoverPos | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -59,7 +61,23 @@ export default function ReactionPicker({ onSelect, disabled }: Props) {
   }
 
   return (
-    <div className="shrink-0">
+    <div className="flex items-center gap-1 flex-wrap shrink-0">
+      {reactions?.map((r) => (
+        <button
+          key={r.emoji}
+          onClick={() => handleSelect(r.emoji)}
+          disabled={disabled}
+          className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full border transition-colors disabled:opacity-40 ${
+            r.reactedByMe
+              ? "bg-copa-gold/20 border-copa-gold/40 text-copa-gold"
+              : "bg-white/10 border-white/10 text-white/60 hover:bg-white/20"
+          }`}
+        >
+          <span>{r.emoji}</span>
+          <span>{r.count}</span>
+        </button>
+      ))}
+
       <button
         ref={triggerRef}
         onClick={() => (pickerOpen ? setPickerOpen(false) : openPicker())}

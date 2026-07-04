@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { toast } from "sonner";
 import { RankingEntry, ReactionEmoji } from "@/lib/types";
 import { Trophy, Medal, Info, X } from "lucide-react";
@@ -122,38 +123,42 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes, c
               )}
             </div>
 
-            {/* Avatar */}
-            <div className={`w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 ${
-              i === 0 ? "border-copa-gold/60" : i === 1 ? "border-gray-400/40" : i === 2 ? "border-amber-600/40" : "border-white/10"
-            }`}>
-              {entry.avatar_url ? (
-                <Image
-                  src={entry.avatar_url}
-                  alt={entry.name}
-                  width={40}
-                  height={40}
-                  className="object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-copa-dark-700 text-white font-bold text-sm">
-                  {entry.name.charAt(0).toUpperCase()}
-                </div>
-              )}
-            </div>
+            {/* Avatar + nome + stats — toca pra ver o perfil completo */}
+            <Link
+              href={`/app/ranking/${entry.id}`}
+              className="flex items-center gap-3 flex-1 min-w-0 group"
+            >
+              <div className={`w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 transition-colors group-hover:border-copa-red/60 ${
+                i === 0 ? "border-copa-gold/60" : i === 1 ? "border-gray-400/40" : i === 2 ? "border-amber-600/40" : "border-white/10"
+              }`}>
+                {entry.avatar_url ? (
+                  <Image
+                    src={entry.avatar_url}
+                    alt={entry.name}
+                    width={40}
+                    height={40}
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-copa-dark-700 text-white font-bold text-sm">
+                    {entry.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
 
-            {/* Nome e stats */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className={`font-semibold text-sm truncate ${i === 0 ? "text-copa-gold" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-white"}`}>
-                  {entry.name}
-                </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className={`font-semibold text-sm truncate ${i === 0 ? "text-copa-gold" : i === 1 ? "text-gray-300" : i === 2 ? "text-amber-600" : "text-white"}`}>
+                    {entry.name}
+                  </p>
+                </div>
+                <div className="flex gap-3 mt-0.5">
+                  <span className="text-xs text-copa-gold/80">{entry.total_points ?? 0} pts</span>
+                  <span className="text-xs text-white/30">{entry.exact_scores ?? 0} exatos</span>
+                  <span className="text-xs text-white/20">{entry.correct_results ?? 0} resultados</span>
+                </div>
               </div>
-              <div className="flex gap-3 mt-0.5">
-                <span className="text-xs text-copa-gold/80">{entry.total_points ?? 0} pts</span>
-                <span className="text-xs text-white/30">{entry.exact_scores ?? 0} exatos</span>
-                <span className="text-xs text-white/20">{entry.correct_results ?? 0} resultados</span>
-              </div>
-            </div>
+            </Link>
 
             {/* Reação */}
             {entry.id !== currentUserId && (

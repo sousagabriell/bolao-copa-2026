@@ -1,21 +1,12 @@
 ﻿export const dynamic = "force-dynamic";
 import { createClient } from "@/lib/supabase/server";
-import { Match, Prediction } from "@/lib/types";
+import { Match, Prediction, STAGE_LABELS } from "@/lib/types";
 import PalpitesClient from "./PalpitesClient";
 import PalpitesDayFilter from "./PalpitesDayFilter";
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 
 const TZ = "America/Sao_Paulo";
-
-const STAGE_LABELS: Record<string, string> = {
-  GROUP_STAGE: "Fase de Grupos",
-  LAST_16: "Oitavas de Final",
-  QUARTER_FINALS: "Quartas de Final",
-  SEMI_FINALS: "Semifinais",
-  THIRD_PLACE: "3o Lugar",
-  FINAL: "Final",
-};
 
 export default async function PalpitesPage() {
   const supabase = await createClient();

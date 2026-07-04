@@ -1,11 +1,18 @@
 "use server";
 
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { ReactionEmoji, REACTION_EMOJIS, translateTeamName } from "@/lib/types";
+import {
+  MatchStatus,
+  ReactionEmoji,
+  REACTION_EMOJIS,
+  ReactionMessageData,
+  ReactionSummary,
+  translateTeamName,
+} from "@/lib/types";
 
 const MAX_MESSAGE_LENGTH = 500;
 const INITIAL_LIMIT = 50;
-const MESSAGE_SELECT = "id, user_id, message, type, created_at, profiles(name, avatar_url)";
+const MESSAGE_SELECT = "id, user_id, message, type, created_at, reaction_data, profiles(name, avatar_url)";
 
 export interface ChatMessageEntry {
   id: number;
@@ -13,6 +20,7 @@ export interface ChatMessageEntry {
   message: string;
   type: "text" | "reaction";
   created_at: string;
+  reaction_data: ReactionMessageData | null;
   profiles: { name: string; avatar_url: string | null } | null;
 }
 
@@ -103,39 +111,158 @@ export async function sendReactionMessage(params: {
 
   const service = createServiceClient();
   let text: string;
+  let reactionData: ReactionMessageData;
 
   if (predictionId != null) {
     const { data: pred } = await service
       .from("predictions")
-      .select("home_score_pred, away_score_pred, profiles(name), matches(home_team, away_team)")
+      .select(
+        "match_id, home_score_pred, away_score_pred, points, profiles(id, name, avatar_url), matches(home_team, away_team, home_team_crest, away_team_crest, status, home_score, away_score)"
+      )
       .eq("id", predictionId)
       .single();
     if (!pred) throw new Error("Palpite não encontrado");
 
-    const targetName = (pred.profiles as unknown as { name: string } | null)?.name ?? "Participante";
-    const match = pred.matches as unknown as { home_team: string; away_team: string } | null;
+    const targetProfile = pred.profiles as unknown as {
+      id: string;
+      name: string;
+      avatar_url: string | null;
+    } | null;
+    const match = pred.matches as unknown as {
+      home_team: string;
+      away_team: string;
+      home_team_crest: string | null;
+      away_team_crest: string | null;
+      status: MatchStatus;
+      home_score: number | null;
+      away_score: number | null;
+    } | null;
+
+    const targetName = targetProfile?.name ?? "Participante";
     const home = translateTeamName(match?.home_team ?? "");
     const away = translateTeamName(match?.away_team ?? "");
 
     text = `${reactorName} reagiu com ${emoji} ao palpite de ${targetName}: ${pred.home_score_pred}x${pred.away_score_pred} (${home} x ${away})`;
+
+    reactionData = {
+      kind: "prediction",
+      emoji,
+      matchId: pred.match_id,
+      targetUserId: targetProfile?.id ?? "",
+      targetName,
+      targetAvatarUrl: targetProfile?.avatar_url ?? null,
+      homeTeam: match?.home_team ?? "",
+      awayTeam: match?.away_team ?? "",
+      homeTeamCrest: match?.home_team_crest ?? null,
+      awayTeamCrest: match?.away_team_crest ?? null,
+      homeScorePred: pred.home_score_pred,
+      awayScorePred: pred.away_score_pred,
+      homeScore: match?.home_score ?? null,
+      awayScore: match?.away_score ?? null,
+      matchStatus: match?.status ?? "SCHEDULED",
+      points: pred.points,
+    };
   } else {
-    const { data: rankingRow } = await service
-      .from("ranking")
-      .select("name, total_points")
-      .eq("id", rankingUserId!)
-      .single();
+    const [{ data: rankingRow }, { data: fullRanking }] = await Promise.all([
+      service
+        .from("ranking")
+        .select("id, name, avatar_url, total_points, exact_scores, correct_results, total_predictions")
+        .eq("id", rankingUserId!)
+        .single(),
+      service.from("ranking").select("id"),
+    ]);
 
     const targetName = rankingRow?.name ?? "Participante";
     const points = rankingRow?.total_points ?? 0;
+    const position = (fullRanking ?? []).findIndex((r) => r.id === rankingUserId);
 
     text = `${reactorName} reagiu com ${emoji} à posição de ${targetName} no ranking (${points} pts)`;
+
+    reactionData = {
+      kind: "ranking",
+      emoji,
+      targetUserId: rankingUserId!,
+      targetName,
+      targetAvatarUrl: rankingRow?.avatar_url ?? null,
+      position: position >= 0 ? position : null,
+      totalPoints: rankingRow?.total_points ?? 0,
+      exactScores: rankingRow?.exact_scores ?? 0,
+      correctResults: rankingRow?.correct_results ?? 0,
+      totalPredictions: rankingRow?.total_predictions ?? 0,
+    };
   }
 
   const { error } = await supabase
     .from("chat_messages")
-    .insert({ user_id: user.id, message: text, type: "reaction" });
+    .insert({ user_id: user.id, message: text, type: "reaction", reaction_data: reactionData });
 
   if (error) throw new Error("Não foi possível enviar a reação");
+}
+
+export type MessageReactionsMap = Record<number, ReactionSummary[]>;
+
+export async function getReactionsForMessages(messageIds: number[]): Promise<MessageReactionsMap> {
+  const map: MessageReactionsMap = {};
+  if (messageIds.length === 0) return map;
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Não autenticado");
+
+  const { data } = await supabase
+    .from("chat_message_reactions")
+    .select("message_id, user_id, emoji")
+    .in("message_id", messageIds);
+
+  for (const row of data ?? []) {
+    const list = (map[row.message_id] ??= []);
+    let entry = list.find((r) => r.emoji === row.emoji);
+    if (!entry) {
+      entry = { emoji: row.emoji as ReactionEmoji, count: 0, reactedByMe: false };
+      list.push(entry);
+    }
+    entry.count += 1;
+    if (row.user_id === user.id) entry.reactedByMe = true;
+  }
+
+  return map;
+}
+
+export async function toggleMessageReaction(
+  messageId: number,
+  emoji: ReactionEmoji
+): Promise<ReactionSummary[]> {
+  if (!REACTION_EMOJIS.includes(emoji)) throw new Error("Emoji inválido");
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Não autenticado");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("payment_status")
+    .eq("id", user.id)
+    .single();
+  if (profile?.payment_status !== "paid") {
+    throw new Error("Apenas participantes pagos podem reagir");
+  }
+
+  const { data: existing } = await supabase
+    .from("chat_message_reactions")
+    .select("id")
+    .eq("message_id", messageId)
+    .eq("user_id", user.id)
+    .eq("emoji", emoji)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from("chat_message_reactions").delete().eq("id", existing.id);
+  } else {
+    await supabase.from("chat_message_reactions").insert({ message_id: messageId, user_id: user.id, emoji });
+  }
+
+  const map = await getReactionsForMessages([messageId]);
+  return map[messageId] ?? [];
 }
 
 export async function deleteMessage(messageId: number): Promise<void> {

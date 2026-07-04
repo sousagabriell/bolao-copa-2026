@@ -124,6 +124,40 @@ export interface ReactionSummary {
   reactedByMe: boolean;
 }
 
+export interface ReactionPredictionData {
+  kind: "prediction";
+  emoji: ReactionEmoji;
+  matchId: number;
+  targetUserId: string;
+  targetName: string;
+  targetAvatarUrl: string | null;
+  homeTeam: string;
+  awayTeam: string;
+  homeTeamCrest: string | null;
+  awayTeamCrest: string | null;
+  homeScorePred: number;
+  awayScorePred: number;
+  homeScore: number | null;
+  awayScore: number | null;
+  matchStatus: MatchStatus;
+  points: number | null;
+}
+
+export interface ReactionRankingData {
+  kind: "ranking";
+  emoji: ReactionEmoji;
+  targetUserId: string;
+  targetName: string;
+  targetAvatarUrl: string | null;
+  position: number | null;
+  totalPoints: number;
+  exactScores: number;
+  correctResults: number;
+  totalPredictions: number;
+}
+
+export type ReactionMessageData = ReactionPredictionData | ReactionRankingData;
+
 const TEAM_NAMES: Record<string, string> = {
   // América do Sul
   Brazil: "Brasil",
@@ -268,6 +302,15 @@ const TEAM_NAMES: Record<string, string> = {
 export function translateTeamName(name: string): string {
   return TEAM_NAMES[name] ?? name;
 }
+
+export const STAGE_LABELS: Record<string, string> = {
+  GROUP_STAGE: "Fase de Grupos",
+  LAST_16: "Oitavas de Final",
+  QUARTER_FINALS: "Quartas de Final",
+  SEMI_FINALS: "Semifinais",
+  THIRD_PLACE: "3o Lugar",
+  FINAL: "Final",
+};
 
 export function formatGroupName(group: string): string {
   return group.replace(/^GROUP_/, "GRUPO ");

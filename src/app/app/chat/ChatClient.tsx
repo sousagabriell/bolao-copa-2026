@@ -5,24 +5,39 @@ import Image from "next/image";
 import { toast } from "sonner";
 import { MessageCircle, Send, Trash2 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
-import { ChatMessageEntry, getMessagesSince, sendMessage, deleteMessage } from "./actions";
+import { ReactionEmoji } from "@/lib/types";
+import ReactionPicker from "@/components/ReactionPicker";
+import {
+  ChatMessageEntry,
+  MessageReactionsMap,
+  getMessagesSince,
+  sendMessage,
+  deleteMessage,
+  getReactionsForMessages,
+  toggleMessageReaction,
+} from "./actions";
 import ChatRulesAnnouncement from "./ChatRulesAnnouncement";
+import ReactionPredictionCard from "./ReactionPredictionCard";
+import ReactionRankingCard from "./ReactionRankingCard";
 
 const TZ = "America/Sao_Paulo";
 const POLL_INTERVAL_MS = 15000;
 
 interface Props {
   initialMessages: ChatMessageEntry[];
+  initialReactions: MessageReactionsMap;
   currentUserId: string;
   isAdmin: boolean;
 }
 
-export default function ChatClient({ initialMessages, currentUserId, isAdmin }: Props) {
+export default function ChatClient({ initialMessages, initialReactions, currentUserId, isAdmin }: Props) {
   const [messages, setMessages] = useState<ChatMessageEntry[]>(initialMessages);
+  const [reactionsMap, setReactionsMap] = useState<MessageReactionsMap>(initialReactions);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastIdRef = useRef<number>(initialMessages[initialMessages.length - 1]?.id ?? 0);
+  const messageIdsRef = useRef<number[]>(initialMessages.map((m) => m.id));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
@@ -32,9 +47,17 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
     const interval = setInterval(async () => {
       try {
         const fresh = await getMessagesSince(lastIdRef.current);
-        if (fresh.length === 0) return;
-        lastIdRef.current = fresh[fresh.length - 1].id;
-        setMessages((prev) => [...prev, ...fresh]);
+        if (fresh.length > 0) {
+          lastIdRef.current = fresh[fresh.length - 1].id;
+          messageIdsRef.current = [...messageIdsRef.current, ...fresh.map((m) => m.id)];
+          setMessages((prev) => [...prev, ...fresh]);
+        }
+        // Também atualiza as reações das mensagens já carregadas, já que
+        // outros participantes podem reagir a qualquer momento.
+        if (messageIdsRef.current.length > 0) {
+          const reactions = await getReactionsForMessages(messageIdsRef.current);
+          setReactionsMap(reactions);
+        }
       } catch {
         // silencioso — tenta de novo no próximo ciclo
       }
@@ -43,6 +66,15 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
     return () => clearInterval(interval);
   }, []);
 
+  async function handleReact(messageId: number, emoji: ReactionEmoji) {
+    try {
+      const updated = await toggleMessageReaction(messageId, emoji);
+      setReactionsMap((prev) => ({ ...prev, [messageId]: updated }));
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível reagir.");
+    }
+  }
+
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
@@ -50,6 +82,7 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
     try {
       const created = await sendMessage(trimmed);
       lastIdRef.current = Math.max(lastIdRef.current, created.id);
+      messageIdsRef.current = [...messageIdsRef.current, created.id];
       setMessages((prev) => [...prev, created]);
       setText("");
     } catch (e: unknown) {
@@ -61,10 +94,12 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
   async function handleDelete(messageId: number) {
     const previous = messages;
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    messageIdsRef.current = messageIdsRef.current.filter((id) => id !== messageId);
     try {
       await deleteMessage(messageId);
     } catch (e: unknown) {
       setMessages(previous);
+      messageIdsRef.current = [...messageIdsRef.current, messageId];
       toast.error(e instanceof Error ? e.message : "Não foi possível apagar a mensagem.");
     }
   }
@@ -72,15 +107,6 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
   return (
     <div className="h-full flex flex-col bg-copa-dark">
       <ChatRulesAnnouncement />
-
-      {/* Header */}
-      <div className="shrink-0 bg-gradient-to-br from-copa-red to-red-900 px-4 py-5">
-        <div className="flex items-center gap-2">
-          <MessageCircle size={18} className="text-copa-gold" fill="currentColor" />
-          <h1 className="text-base font-black text-white tracking-wide">Chat do Bolão</h1>
-        </div>
-        <p className="text-xs text-white/50 mt-1">Fale com os outros participantes</p>
-      </div>
 
       {/* Mensagens */}
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3">
@@ -99,6 +125,34 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
           const time = formatInTimeZone(new Date(msg.created_at), TZ, "HH:mm");
 
           if (msg.type === "reaction") {
+            if (msg.reaction_data?.kind === "prediction") {
+              return (
+                <ReactionPredictionCard
+                  key={msg.id}
+                  data={msg.reaction_data}
+                  reactorName={name}
+                  reactorAvatarUrl={avatar ?? null}
+                  time={time}
+                  isAdmin={isAdmin}
+                  onDelete={() => handleDelete(msg.id)}
+                />
+              );
+            }
+            if (msg.reaction_data?.kind === "ranking") {
+              return (
+                <ReactionRankingCard
+                  key={msg.id}
+                  data={msg.reaction_data}
+                  reactorName={name}
+                  reactorAvatarUrl={avatar ?? null}
+                  time={time}
+                  isAdmin={isAdmin}
+                  onDelete={() => handleDelete(msg.id)}
+                />
+              );
+            }
+
+            // Fallback: reação antiga, enviada antes de reaction_data existir.
             return (
               <div key={msg.id} className="flex justify-center">
                 <div className="group flex items-center gap-1.5 max-w-[90%] bg-white/5 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5">
@@ -120,41 +174,50 @@ export default function ChatClient({ initialMessages, currentUserId, isAdmin }: 
           }
 
           return (
-            <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[78%] flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}>
-                {!isMine && (
-                  <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center mb-1">
-                    {avatar ? (
-                      <Image src={avatar} alt={name} width={28} height={28} className="object-cover" />
-                    ) : (
-                      <span className="text-[10px] font-bold text-white">{name.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                )}
-
-                <div
-                  className={`rounded-2xl px-3 py-2 ${
-                    isMine
-                      ? "bg-copa-red text-white rounded-br-sm"
-                      : "bg-copa-dark-800 text-white border border-white/10 rounded-bl-sm"
-                  }`}
-                >
+            <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+              <div className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}>
+                <div className={`max-w-[78%] flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}>
                   {!isMine && (
-                    <p className="text-[11px] font-bold text-copa-gold mb-0.5">{name}</p>
+                    <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center mb-1">
+                      {avatar ? (
+                        <Image src={avatar} alt={name} width={28} height={28} className="object-cover" />
+                      ) : (
+                        <span className="text-[10px] font-bold text-white">{name.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
                   )}
-                  <p className="text-sm leading-snug break-words whitespace-pre-wrap">{msg.message}</p>
-                  <p className={`text-[10px] mt-1 ${isMine ? "text-white/70" : "text-white/30"}`}>{time}</p>
-                </div>
 
-                {isAdmin && (
-                  <button
-                    onClick={() => handleDelete(msg.id)}
-                    aria-label="Apagar mensagem"
-                    className="shrink-0 text-white/20 hover:text-red-400 p-1 transition-colors"
+                  <div
+                    className={`rounded-2xl px-3 py-2 ${
+                      isMine
+                        ? "bg-copa-red text-white rounded-br-sm"
+                        : "bg-copa-dark-800 text-white border border-white/10 rounded-bl-sm"
+                    }`}
                   >
-                    <Trash2 size={12} />
-                  </button>
-                )}
+                    {!isMine && (
+                      <p className="text-[11px] font-bold text-copa-gold mb-0.5">{name}</p>
+                    )}
+                    <p className="text-sm leading-snug break-words whitespace-pre-wrap">{msg.message}</p>
+                    <p className={`text-[10px] mt-1 ${isMine ? "text-white/70" : "text-white/30"}`}>{time}</p>
+                  </div>
+
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleDelete(msg.id)}
+                      aria-label="Apagar mensagem"
+                      className="shrink-0 text-white/20 hover:text-red-400 p-1 transition-colors"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className={`mt-1 ${isMine ? "mr-1" : "ml-9"}`}>
+                <ReactionPicker
+                  reactions={reactionsMap[msg.id] ?? []}
+                  onSelect={(emoji) => handleReact(msg.id, emoji)}
+                />
               </div>
             </div>
           );
