@@ -28,12 +28,20 @@ function describeReaction(entry: NotificationEntry): string {
   return `reagiu com ${data.emoji} à sua posição no ranking${position}`;
 }
 
-function describeMention(entry: NotificationEntry): string {
-  const message = entry.mention_message;
-  if (!message) return "mencionou você no chat";
+function truncate(message: string): string {
+  return message.length > 80 ? `${message.slice(0, 80)}…` : message;
+}
 
-  const excerpt = message.length > 80 ? `${message.slice(0, 80)}…` : message;
-  return `mencionou você no chat: "${excerpt}"`;
+function describeMention(entry: NotificationEntry): string {
+  const message = entry.message_excerpt;
+  if (!message) return "mencionou você no chat";
+  return `mencionou você no chat: "${truncate(message)}"`;
+}
+
+function describeMessageReaction(entry: NotificationEntry): string {
+  const message = entry.message_excerpt;
+  if (!message) return `reagiu com ${entry.emoji} à sua mensagem`;
+  return `reagiu com ${entry.emoji} à sua mensagem: "${truncate(message)}"`;
 }
 
 function describeMatchReminder(entry: NotificationEntry): string {
@@ -91,7 +99,11 @@ export default function NotificationsClient({ initialNotifications }: Props) {
                   ) : (
                     <>
                       <span className="font-semibold text-white">{entry.actor_name}</span>{" "}
-                      {entry.type === "mention" ? describeMention(entry) : describeReaction(entry)}
+                      {entry.type === "mention"
+                        ? describeMention(entry)
+                        : entry.type === "message_reaction"
+                        ? describeMessageReaction(entry)
+                        : describeReaction(entry)}
                     </>
                   )}
                 </p>

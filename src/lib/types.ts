@@ -169,12 +169,13 @@ export interface MatchReminderData {
 
 export interface NotificationEntry {
   id: number;
-  type: "reaction" | "match_reminder" | "mention";
+  type: "reaction" | "match_reminder" | "mention" | "message_reaction";
   actor_name: string | null;
   actor_avatar_url: string | null;
   reaction_data: ReactionMessageData | null;
   match_reminder: MatchReminderData | null;
-  mention_message: string | null;
+  message_excerpt: string | null;
+  emoji: ReactionEmoji | null;
   read_at: string | null;
   created_at: string;
 }

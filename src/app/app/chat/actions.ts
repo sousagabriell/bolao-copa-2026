@@ -327,6 +327,24 @@ export async function toggleMessageReaction(
     await supabase.from("chat_message_reactions").delete().eq("id", existing.id);
   } else {
     await supabase.from("chat_message_reactions").insert({ message_id: messageId, user_id: user.id, emoji });
+
+    const { data: message } = await supabase
+      .from("chat_messages")
+      .select("user_id")
+      .eq("id", messageId)
+      .single();
+
+    if (message && message.user_id !== user.id) {
+      const service = createServiceClient();
+      const { error: notifError } = await service.from("notifications").insert({
+        user_id: message.user_id,
+        actor_id: user.id,
+        message_id: messageId,
+        type: "message_reaction",
+        emoji,
+      });
+      if (notifError) console.error("Falha ao criar notificação de reação à mensagem:", notifError);
+    }
   }
 
   const map = await getReactionsForMessages([messageId]);

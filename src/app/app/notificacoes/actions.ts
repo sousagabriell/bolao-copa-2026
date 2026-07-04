@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { MatchReminderData, NotificationEntry, ReactionMessageData } from "@/lib/types";
+import { MatchReminderData, NotificationEntry, ReactionEmoji, ReactionMessageData } from "@/lib/types";
 
 const LIST_LIMIT = 50;
 
@@ -29,7 +29,7 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
   const { data, error } = await supabase
     .from("notifications")
     .select(
-      "id, type, read_at, created_at, profiles!notifications_actor_id_fkey(name, avatar_url), chat_messages(reaction_data, message), matches(id, home_team, away_team, home_team_crest, away_team_crest, starts_at)"
+      "id, type, emoji, read_at, created_at, profiles!notifications_actor_id_fkey(name, avatar_url), chat_messages(reaction_data, message), matches(id, home_team, away_team, home_team_crest, away_team_crest, starts_at)"
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
@@ -39,7 +39,8 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
 
   return ((data ?? []) as unknown as Array<{
     id: number;
-    type: "reaction" | "match_reminder" | "mention";
+    type: "reaction" | "match_reminder" | "mention" | "message_reaction";
+    emoji: ReactionEmoji | null;
     read_at: string | null;
     created_at: string;
     profiles: { name: string; avatar_url: string | null } | null;
@@ -55,12 +56,14 @@ export async function getNotifications(): Promise<NotificationEntry[]> {
   }>).map((row) => ({
     id: row.id,
     type: row.type,
+    emoji: row.emoji,
     read_at: row.read_at,
     created_at: row.created_at,
     actor_name: row.profiles?.name ?? null,
     actor_avatar_url: row.profiles?.avatar_url ?? null,
     reaction_data: row.chat_messages?.reaction_data ?? null,
-    mention_message: row.type === "mention" ? (row.chat_messages?.message ?? null) : null,
+    message_excerpt:
+      row.type === "mention" || row.type === "message_reaction" ? (row.chat_messages?.message ?? null) : null,
     match_reminder: row.matches
       ? ({
           matchId: row.matches.id,
