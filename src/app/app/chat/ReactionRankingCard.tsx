@@ -10,7 +10,7 @@ interface Props {
   reactorName: string;
   reactorAvatarUrl: string | null;
   time: string;
-  isAdmin: boolean;
+  canDelete: boolean;
   onDelete: () => void;
 }
 
@@ -21,7 +21,7 @@ const RANK_STYLES = [
 ];
 const RANK_STYLE_DEFAULT = { border: "border-white/10", badge: "text-white/50 bg-white/5 border-white/10", name: "text-white" };
 
-export default function ReactionRankingCard({ data, reactorName, time, isAdmin, onDelete }: Props) {
+export default function ReactionRankingCard({ data, reactorName, time, canDelete, onDelete }: Props) {
   const style = data.position !== null && data.position < 3 ? RANK_STYLES[data.position] : RANK_STYLE_DEFAULT;
 
   return (
@@ -35,7 +35,7 @@ export default function ReactionRankingCard({ data, reactorName, time, isAdmin, 
             <span className="text-white/25"> · {time}</span>
           </span>
 
-          {isAdmin && (
+          {canDelete && (
             <button
               onClick={onDelete}
               aria-label="Apagar mensagem"

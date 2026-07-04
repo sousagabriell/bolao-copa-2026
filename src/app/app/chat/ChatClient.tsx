@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { MessageCircle, Send, Trash2 } from "lucide-react";
 import { formatInTimeZone } from "date-fns-tz";
+import { ptBR } from "date-fns/locale";
 import { MentionableUser, PendingMention, ReactionEmoji } from "@/lib/types";
 import ReactionPicker from "@/components/ReactionPicker";
 import MentionAutocomplete from "@/components/MentionAutocomplete";
@@ -34,6 +35,21 @@ interface Props {
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getDayKey(dateStr: string): string {
+  return formatInTimeZone(new Date(dateStr), TZ, "yyyy-MM-dd");
+}
+
+function getDayLabel(dateStr: string): string {
+  const key = getDayKey(dateStr);
+  const now = new Date();
+  const todayKey = formatInTimeZone(now, TZ, "yyyy-MM-dd");
+  const yesterdayKey = formatInTimeZone(new Date(now.getTime() - 24 * 60 * 60 * 1000), TZ, "yyyy-MM-dd");
+
+  if (key === todayKey) return "Hoje";
+  if (key === yesterdayKey) return "Ontem";
+  return formatInTimeZone(new Date(dateStr), TZ, "d 'de' MMMM", { locale: ptBR });
 }
 
 function renderWithMentions(text: string, names: string[]) {
@@ -238,111 +254,125 @@ export default function ChatClient({ initialMessages, initialReactions, currentU
           </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.flatMap((msg, index) => {
+          const prevMsg = messages[index - 1];
+          const showDivider = !prevMsg || getDayKey(msg.created_at) !== getDayKey(prevMsg.created_at);
+          const divider = showDivider ? (
+            <div key={`divider-${msg.id}`} className="flex justify-center py-1">
+              <span className="text-[11px] font-semibold text-white/40 bg-white/5 px-3 py-1 rounded-full">
+                {getDayLabel(msg.created_at)}
+              </span>
+            </div>
+          ) : null;
+
           const isMine = msg.user_id === currentUserId;
+          const canDelete = isAdmin || isMine;
           const name = msg.profiles?.name ?? "Participante";
           const avatar = msg.profiles?.avatar_url;
           const time = formatInTimeZone(new Date(msg.created_at), TZ, "HH:mm");
 
+          let content: ReactNode;
+
           if (msg.type === "reaction") {
             if (msg.reaction_data?.kind === "prediction") {
-              return (
+              content = (
                 <ReactionPredictionCard
                   key={msg.id}
                   data={msg.reaction_data}
                   reactorName={name}
                   reactorAvatarUrl={avatar ?? null}
                   time={time}
-                  isAdmin={isAdmin}
+                  canDelete={canDelete}
                   onDelete={() => handleDelete(msg.id)}
                 />
               );
-            }
-            if (msg.reaction_data?.kind === "ranking") {
-              return (
+            } else if (msg.reaction_data?.kind === "ranking") {
+              content = (
                 <ReactionRankingCard
                   key={msg.id}
                   data={msg.reaction_data}
                   reactorName={name}
                   reactorAvatarUrl={avatar ?? null}
                   time={time}
-                  isAdmin={isAdmin}
+                  canDelete={canDelete}
                   onDelete={() => handleDelete(msg.id)}
                 />
               );
+            } else {
+              // Fallback: reação antiga, enviada antes de reaction_data existir.
+              content = (
+                <div key={msg.id} className="flex justify-center">
+                  <div className="group flex items-center gap-1.5 max-w-[90%] bg-white/5 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5">
+                    <p className="text-xs text-white/50 text-center leading-snug break-words">
+                      {msg.message} <span className="text-white/25">· {time}</span>
+                    </p>
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(msg.id)}
+                        aria-label="Apagar mensagem"
+                        className="shrink-0 text-white/20 hover:text-red-400 p-0.5 transition-colors"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
             }
+          } else {
+            content = (
+              <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                <div className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}>
+                  <div className={`max-w-[78%] flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}>
+                    {!isMine && (
+                      <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center mb-1">
+                        {avatar ? (
+                          <Image src={avatar} alt={name} width={28} height={28} className="object-cover" />
+                        ) : (
+                          <span className="text-[10px] font-bold text-white">{name.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                    )}
 
-            // Fallback: reação antiga, enviada antes de reaction_data existir.
-            return (
-              <div key={msg.id} className="flex justify-center">
-                <div className="group flex items-center gap-1.5 max-w-[90%] bg-white/5 border border-white/10 rounded-full pl-3 pr-1.5 py-1.5">
-                  <p className="text-xs text-white/50 text-center leading-snug break-words">
-                    {msg.message} <span className="text-white/25">· {time}</span>
-                  </p>
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleDelete(msg.id)}
-                      aria-label="Apagar mensagem"
-                      className="shrink-0 text-white/20 hover:text-red-400 p-0.5 transition-colors"
+                    <div
+                      className={`rounded-2xl px-3 py-2 ${
+                        isMine
+                          ? "bg-copa-red text-white rounded-br-sm"
+                          : "bg-copa-dark-800 text-white border border-white/10 rounded-bl-sm"
+                      }`}
                     >
-                      <Trash2 size={11} />
-                    </button>
-                  )}
+                      {!isMine && (
+                        <p className="text-[11px] font-bold text-copa-gold mb-0.5">{name}</p>
+                      )}
+                      <p className="text-sm leading-snug break-words whitespace-pre-wrap">
+                        {renderWithMentions(msg.message, msg.mentioned_names)}
+                      </p>
+                      <p className={`text-[10px] mt-1 ${isMine ? "text-white/70" : "text-white/30"}`}>{time}</p>
+                    </div>
+
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(msg.id)}
+                        aria-label="Apagar mensagem"
+                        className="shrink-0 text-white/20 hover:text-red-400 p-1 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className={`mt-1 ${isMine ? "mr-1" : "ml-9"}`}>
+                  <ReactionPicker
+                    reactions={reactionsMap[msg.id] ?? []}
+                    onSelect={(emoji) => handleReact(msg.id, emoji)}
+                  />
                 </div>
               </div>
             );
           }
 
-          return (
-            <div key={msg.id} className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-              <div className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}>
-                <div className={`max-w-[78%] flex items-end gap-2 ${isMine ? "flex-row-reverse" : ""}`}>
-                  {!isMine && (
-                    <div className="w-7 h-7 rounded-full overflow-hidden shrink-0 border border-white/10 bg-copa-dark-700 flex items-center justify-center mb-1">
-                      {avatar ? (
-                        <Image src={avatar} alt={name} width={28} height={28} className="object-cover" />
-                      ) : (
-                        <span className="text-[10px] font-bold text-white">{name.charAt(0).toUpperCase()}</span>
-                      )}
-                    </div>
-                  )}
-
-                  <div
-                    className={`rounded-2xl px-3 py-2 ${
-                      isMine
-                        ? "bg-copa-red text-white rounded-br-sm"
-                        : "bg-copa-dark-800 text-white border border-white/10 rounded-bl-sm"
-                    }`}
-                  >
-                    {!isMine && (
-                      <p className="text-[11px] font-bold text-copa-gold mb-0.5">{name}</p>
-                    )}
-                    <p className="text-sm leading-snug break-words whitespace-pre-wrap">
-                      {renderWithMentions(msg.message, msg.mentioned_names)}
-                    </p>
-                    <p className={`text-[10px] mt-1 ${isMine ? "text-white/70" : "text-white/30"}`}>{time}</p>
-                  </div>
-
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleDelete(msg.id)}
-                      aria-label="Apagar mensagem"
-                      className="shrink-0 text-white/20 hover:text-red-400 p-1 transition-colors"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className={`mt-1 ${isMine ? "mr-1" : "ml-9"}`}>
-                <ReactionPicker
-                  reactions={reactionsMap[msg.id] ?? []}
-                  onSelect={(emoji) => handleReact(msg.id, emoji)}
-                />
-              </div>
-            </div>
-          );
+          return divider ? [divider, content] : [content];
         })}
 
         <div ref={bottomRef} />

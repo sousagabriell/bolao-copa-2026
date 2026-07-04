@@ -9,11 +9,11 @@ interface Props {
   reactorName: string;
   reactorAvatarUrl: string | null;
   time: string;
-  isAdmin: boolean;
+  canDelete: boolean;
   onDelete: () => void;
 }
 
-export default function ReactionPredictionCard({ data, reactorName, time, isAdmin, onDelete }: Props) {
+export default function ReactionPredictionCard({ data, reactorName, time, canDelete, onDelete }: Props) {
   const finished = data.matchStatus === "FINISHED";
   const live = data.matchStatus === "IN_PLAY" || data.matchStatus === "PAUSED";
   const hasRealScore = (finished || live) && data.homeScore !== null;
@@ -51,7 +51,7 @@ export default function ReactionPredictionCard({ data, reactorName, time, isAdmi
                 +{data.points}
               </span>
             )}
-            {isAdmin && (
+            {canDelete && (
               <button
                 onClick={onDelete}
                 aria-label="Apagar mensagem"

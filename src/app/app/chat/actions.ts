@@ -343,7 +343,15 @@ export async function deleteMessage(messageId: number): Promise<void> {
     .select("is_admin")
     .eq("id", user.id)
     .single();
-  if (!profile?.is_admin) throw new Error("Sem permissão");
+
+  const { data: message } = await supabase
+    .from("chat_messages")
+    .select("user_id")
+    .eq("id", messageId)
+    .single();
+
+  const isOwner = message?.user_id === user.id;
+  if (!profile?.is_admin && !isOwner) throw new Error("Sem permissão");
 
   const service = createServiceClient();
   await service.from("chat_messages").delete().eq("id", messageId);
