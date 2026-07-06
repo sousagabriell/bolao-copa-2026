@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
-import { RankingEntry, ReactionEmoji } from "@/lib/types";
+import { BonusQuestionReveal, RankingEntry, ReactionEmoji } from "@/lib/types";
 import { Trophy, Medal, Info, X } from "lucide-react";
 import { sendReactionMessage } from "../chat/actions";
 import ReactionPicker from "@/components/ReactionPicker";
+import BonusResultsAnnouncement from "./BonusResultsAnnouncement";
 
 interface Props {
   ranking: RankingEntry[];
@@ -16,6 +17,7 @@ interface Props {
   entryFee: number;
   prizes: { first: number; second: number; third: number };
   currentUserId: string;
+  bonusReveals: BonusQuestionReveal[];
 }
 
 function formatBRL(value: number) {
@@ -28,7 +30,7 @@ const PRIZE_POSITIONS = [
   { label: "3°", percent: "15%", key: "third" as const, color: "text-amber-600", bg: "bg-amber-600/10", border: "border-amber-600/30" },
 ];
 
-export default function RankingClient({ ranking, totalPrize, entryFee, prizes, currentUserId }: Props) {
+export default function RankingClient({ ranking, totalPrize, entryFee, prizes, currentUserId, bonusReveals }: Props) {
   const [showRules, setShowRules] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
@@ -46,6 +48,8 @@ export default function RankingClient({ ranking, totalPrize, entryFee, prizes, c
 
   return (
     <div className="min-h-screen bg-copa-dark">
+      <BonusResultsAnnouncement questions={bonusReveals} />
+
       {/* Premio banner */}
       <div className="bg-gradient-to-br from-copa-gold to-yellow-600 px-4 py-6 text-center">
         <div className="flex items-center justify-center gap-2 mb-1">

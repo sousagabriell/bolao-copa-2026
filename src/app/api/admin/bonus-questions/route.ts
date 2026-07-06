@@ -109,6 +109,11 @@ export async function PATCH(request: NextRequest) {
         .eq("id", ans.id);
     }
 
+    await service
+      .from("bonus_questions")
+      .update({ scored_at: new Date().toISOString() })
+      .eq("id", body.id);
+
     return NextResponse.json({ scored: answers?.length ?? 0 });
   }
 

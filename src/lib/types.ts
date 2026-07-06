@@ -92,6 +92,14 @@ export interface BonusQuestion {
   updated_at: string;
 }
 
+export interface BonusQuestionReveal {
+  id: number;
+  question: string;
+  correctAnswer: string;
+  points: number;
+  winners: { name: string; avatarUrl: string | null; points: number }[];
+}
+
 export interface BonusAnswer {
   id: number;
   user_id: string;
